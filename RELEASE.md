@@ -13,6 +13,7 @@ Flash **only the file for your own variant** (the web updater refuses the wrong 
 
 What was checked on the OSPI radio: web UI pages (Control, Memory, Finance, Backup, Config, Update, Patches), the **Analog** layout (live mirror on the Control tab), and the Weather (now / days / hours / METAR / rain radar), Flights (list + detail) and Finance screens.
 Not yet confirmed on real hardware: the **Cockpit** and **Avionics** layouts (only checked as PC renders), full-flash "merged" images, backup *import*.
+Known: with a weak battery the radio can reboot while Wi-Fi is on (charge it or turn Wi-Fi off). A user reported ~170 mA draw with Wi-Fi enabled; the reboot depends on the hardware, worse with a weak 3V3 regulator.
 Known: the flights service occasionally reported `TLS erro (-1)` on the Services screen (retries work).
 
 ## What's new

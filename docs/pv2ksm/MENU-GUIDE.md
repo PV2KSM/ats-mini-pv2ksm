@@ -67,7 +67,7 @@ The map background needs your own free CARTO basemaps key. Get one at <https://c
 
 ## Known limitations
 - Flights in dense areas don't work well.
-- With a weak battery the radio can keep rebooting while Wi-Fi is on; charge it or turn Wi-Fi off.
+- With a weak battery the radio can keep rebooting while Wi-Fi is on (charge it or turn Wi-Fi off). A user reported about 170 mA continuous draw with Wi-Fi enabled and that the reboot depends on the hardware, worse with a weak 3V3 regulator (reported by a user, not measured by me).
 - Only OSPI is tested; QSPI and LilyGO T-Embed are compiled only. Cockpit and Avionics need more real-hardware testing.
 - Open-Meteo is free for non-commercial use only; other services keep their own terms (see `AVISOS-DE-TERCEIROS.md`).
 
