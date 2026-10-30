@@ -5,6 +5,10 @@
 #include "Menu.h"
 #include "BleMode.h"
 #include "Draw.h"
+#include "Flights.h"
+#include "Weather.h"
+#include "Finance.h"
+#include "NetStatus.h"
 
 //
 // Draw preferences write indicator
@@ -441,6 +445,10 @@ void drawScanGraphs(uint32_t freq)
 void drawScreen()
 {
   if(sleepOn()) return;
+  if(currentCmd == CMD_FLIGHTS) { flightsDraw(spr); spr.pushSprite(0, 0); return; }
+  if(currentCmd == CMD_WEATHER) { weatherDraw(spr); return; }
+  if(currentCmd == CMD_NETWORK) { netStatusDraw(spr); spr.pushSprite(0, 0); return; }
+  if(currentCmd == CMD_FINANCE) { financeDraw(spr); spr.pushSprite(0, 0); return; }
 
   // Clear screen buffer
   spr.fillSprite(TH.bg);
@@ -456,6 +464,15 @@ void drawScreen()
   {
     case UI_SMETER:
       drawLayoutSmeter();
+      break;
+    case UI_COCKPIT:
+      drawLayoutCockpit();
+      break;
+    case UI_ANALOG:
+      drawLayoutAnalog();
+      break;
+    case UI_AVIONICS:
+      drawLayoutAvionics();
       break;
     default:
       drawLayoutDefault();

@@ -7,6 +7,10 @@
 #include "Ota.h"
 #include "BleMode.h"
 #include "Menu.h"
+#include "Flights.h"
+#include "Weather.h"
+#include "Finance.h"
+#include "NetStatus.h"
 #include "Memories.h"
 #include "Patches.h"
 #include "Storage.h"
@@ -93,7 +97,11 @@ Band *getCurrentBand() { return(&bands[bandIdx]); }
 #define MENU_AGC_ATT     10
 #define MENU_AVC         11
 #define MENU_SOFTMUTE    12
-#define MENU_SETTINGS    13
+#define MENU_FLIGHTS     13
+#define MENU_WEATHER     14
+#define MENU_FINANCE     15
+#define MENU_NETWORK     16
+#define MENU_SETTINGS    17
 
 int8_t menuIdx = MENU_VOLUME;
 
@@ -112,6 +120,10 @@ static const char *menu[] =
   "AGC/ATTN",
   "AVC",
   "SoftMute",
+  "Flights",
+  "Weather",
+  "Finance",
+  "Network",
   "Settings",
 };
 
@@ -250,7 +262,7 @@ int getTotalSleepModes() { return(ITEM_COUNT(sleepModeDesc)); }
 // https://en.wikipedia.org/wiki/List_of_UTC_offsets
 // https://www.timeanddate.com/time/time-zones-interesting.html
 //
-uint8_t utcOffsetIdx = 8;
+uint8_t utcOffsetIdx = 11;   // UTC-3 (Sao Paulo)
 const UTCOffset utcOffsets[] =
 {
   { -12 * 4, "UTC-12" },
@@ -326,7 +338,7 @@ static uint8_t dateTimeSecond;
 //
 uint8_t uiLayoutIdx = 0;
 const char *const uiLayoutDesc[] =
-{ "Default", "S-Meter" };
+{ "Default", "S-Meter", "Cockpit", "Analog", "Avionics" };
 
 int getTotalUILayouts() { return(ITEM_COUNT(uiLayoutDesc)); }
 
@@ -929,7 +941,7 @@ static void doScrollDir(int16_t enc)
 uint8_t doAbout(int16_t enc)
 {
   static uint8_t aboutScreen = 0;
-  aboutScreen = clamp_range(aboutScreen, enc, 0, 2);
+  aboutScreen = clamp_range(aboutScreen, enc, 0, 3);
   return aboutScreen;
 }
 
@@ -1184,6 +1196,10 @@ static void clickMenu(int cmd, bool shortPress)
     case MENU_AGC_ATT:  currentCmd = CMD_AGC;       break;
     case MENU_BAND:     currentCmd = CMD_BAND;      break;
     case MENU_SETTINGS: currentCmd = CMD_SETTINGS;  break;
+    case MENU_FLIGHTS:  flightsOpen(); currentCmd = CMD_FLIGHTS; break;
+    case MENU_WEATHER:  weatherOpen(); currentCmd = CMD_WEATHER; break;
+    case MENU_FINANCE:  financeOpen(); currentCmd = CMD_FINANCE; break;
+    case MENU_NETWORK:  netStatusOpen(); currentCmd = CMD_NETWORK; break;
     case MENU_SQUELCH:  currentCmd = CMD_SQUELCH;   break;
     case MENU_VOLUME:   currentCmd = CMD_VOLUME;    break;
     case MENU_VFO:      clickVfo(shortPress);       break;
@@ -1310,6 +1326,10 @@ bool doSideBar(uint16_t cmd, int16_t enc, int16_t enca)
     case CMD_SQUELCH:    doSquelch(enca);break;
     case CMD_UPDATEFW:   updateFwIdx = wrap_range(updateFwIdx, scrollDirection * enc, 0, LAST_ITEM(updateFwActions));break;
     case CMD_ABOUT:      doAbout(enc);break;
+    case CMD_FLIGHTS:    flightsScroll(scrollDirection * enc);break;
+    case CMD_WEATHER:    weatherScroll(scrollDirection * enc);break;
+    case CMD_FINANCE:    break;
+    case CMD_NETWORK:    netStatusScroll(scrollDirection * enc);break;
     default:             return(false);
   }
 
@@ -1343,6 +1363,8 @@ bool clickHandler(uint16_t cmd, bool shortPress)
     case CMD_SCAN:     clickScan(shortPress);break;
     case CMD_FREQ:     return(clickFreq(shortPress));
     case CMD_DATETIME: clickDateTime(shortPress);break;
+    case CMD_FLIGHTS:  if(shortPress) flightsToggleInfo(); else currentCmd = CMD_NONE; break;
+    case CMD_WEATHER:  if(shortPress && weatherClick()) break; return(false);
     default:           return(false);
   }
 

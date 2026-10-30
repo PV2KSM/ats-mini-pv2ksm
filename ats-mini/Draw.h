@@ -52,6 +52,12 @@ void drawScale(uint32_t freq); // Hz
 
 void drawLayoutDefault();
 void drawLayoutSmeter();
+void drawLayoutCockpit();
+void drawLayoutAnalog();
+bool analogTick();
+void drawLayoutAvionics();
+bool avionicsTick();                // True when the Avionics layout needs a bar animation frame                  // True when the Analog layout needs a needle animation frame
+bool cockpitTick();                 // True when the Cockpit layout needs an animation frame
 
 void drawAbout();
 void drawAboutHelp(uint8_t arrow);

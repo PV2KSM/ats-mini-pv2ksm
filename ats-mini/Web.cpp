@@ -19,6 +19,14 @@
 #include "PageWiFi.h"
 #include "PageUpdate.h"
 #include "PagePatches.h"
+#include "PageControl.h"
+#include "PageLocation.h"
+#include "PageFinance.h"
+#include "PageBackup.h"
+#include "Finance.h"
+#include "Backup.h"
+#include "Location.h"
+#include "Diag.h"
 
 #include <new>
 #include <mutex>
@@ -73,6 +81,26 @@ static struct
 } configSettings;
 
 static std::atomic<int> pendingWiFiMode{-1};
+
+// Receiver controls requested from the web, applied by the main task in webTick()
+static struct
+{
+  std::mutex mutex;
+  bool pending = false;
+  int64_t freq = -1;     // Hz, -1 = unchanged
+  int band = -1;
+  int mode = -1;
+  int volume = -1;
+  int step = 0;          // Tuning steps to move, positive or negative
+} radioCmd;
+
+static void webControlPage(AsyncWebServerRequest *request);
+static void webApiStatus(AsyncWebServerRequest *request);
+static void webApiTune(AsyncWebServerRequest *request);
+static void webLocationPage(AsyncWebServerRequest *request, const LocationInfo &shown, const char *message);
+static void webSetLocation(AsyncWebServerRequest *request);
+static void webFinancePage(AsyncWebServerRequest *request, const char *message);
+static void webApplyRadio();
 
 struct SplashUploadState
 {
@@ -153,6 +181,7 @@ void webScreenshotTick()
 bool webTick()
 {
   otaTick();
+  webApplyRadio();
   bool redraw = patchesTick();
   std::unique_lock<std::mutex> lock(configSettings.mutex);
   if(configSettings.pending)
@@ -223,6 +252,70 @@ void webInit()
   server.on("/", HTTP_ANY, [] (AsyncWebServerRequest *request) {
     request->send(200, "text/html", webRadioPage());
   });
+
+  server.on("/control", HTTP_GET, webControlPage);
+  server.on("/api/status", HTTP_GET, webApiStatus);
+  server.on("/api/tune", HTTP_POST, webApiTune);
+  server.on("/location", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webLocationPage(request, locationGet(), "");
+  });
+  server.on("/location", HTTP_POST, webSetLocation);
+
+  // Finance: local currency
+  server.on("/finance", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webFinancePage(request, "");
+  });
+  server.on("/finance", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    const auto *p = request->getParam("currency", true);
+    const char *error = financeRequestCurrency(p ? p->value().c_str() : "");
+    webFinancePage(request, error ? error : "Saved. Open Finance in the radio menu.");
+  });
+
+  // Backup: export and import everything
+  server.on("/backup", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    request->send(200, "text/html", webPage(pageBackup, pageBackupTitle, {{"title", pageBackupTitle}}, {
+      {"navigation", [](String &out) { webNavigation(out, "/backup"); }}
+    }));
+  });
+  server.on("/backup.json", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    const auto *s = request->getParam("secrets");
+    String json;
+    backupExport(json, s && s->value() == "1");
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json);
+    response->addHeader("Content-Disposition", "attachment; filename=\"ats-mini-backup.json\"");
+    response->addHeader("Cache-Control", "no-store");
+    request->send(response);
+  });
+  server.on("/backup/import", HTTP_POST,
+    [] (AsyncWebServerRequest *request) {
+      if(!webIsAuthenticated(request)) return request->requestAuthentication();
+      uint8_t *buf = (uint8_t *)request->_tempObject;
+      if(!buf) return request->send(400, "text/plain", "No data received.");
+      size_t len;
+      memcpy(&len, buf, sizeof(len));
+      char msg[96];
+      int n = backupImport((const char *)buf + sizeof(len), len, msg, sizeof(msg));
+      request->send(n >= 0 ? 200 : 400, "text/plain", msg);
+      if(n >= 0) backupRestartSoon();
+    },
+    nullptr,
+    [] (AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+      if(total == 0 || total > 90000) return;
+      if(index == 0)
+      {
+        uint8_t *b = (uint8_t *)heap_caps_malloc(total + sizeof(size_t) + 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if(!b) return;
+        memcpy(b, &total, sizeof(total));
+        request->_tempObject = b;
+      }
+      uint8_t *b = (uint8_t *)request->_tempObject;
+      if(b) memcpy(b + sizeof(size_t) + index, data, len);
+    });
 
   server.on("/memory", HTTP_GET, [] (AsyncWebServerRequest *request) {
     if(!webIsAuthenticated(request)) return request->requestAuthentication();
@@ -638,8 +731,19 @@ static const String webRadioPage()
     ssid = String(RECEIVER_NAME);
   }
 
+  char lastReset[200];
+  diagText(lastReset, sizeof(lastReset));
+  const LocationInfo loc = locationGet();
+  char latText[16], lonText[16];
+  snprintf(latText, sizeof(latText), "%.4f", loc.lat);
+  snprintf(lonText, sizeof(lonText), "%.4f", loc.lon);
+  const String freqBig = currentMode == FM ? String(currentFrequency / 1000000.0, 1) : String(currentFrequency / 1000.0, currentMode == AM ? 0 : 2);
+  const String freqUnit = currentMode == FM ? "MHz" : "kHz";
+
   return webPage(pageStatus, pageStatusTitle, {
     {"title", pageStatusTitle},
+    {"lastreset", lastReset}, {"lat", latText}, {"lon", lonText}, {"locname", loc.name}, {"label", loc.label}, {"icao", loc.icao},
+    {"frequency_big", freqBig}, {"frequency_unit", freqUnit}, {"volume", String((int)volume)},
     {"ip", ip}, {"ssid", ssid},
     {"mac", String(getMACAddress())}, {"version", String(getVersion(true))},
     {"time", receiverTime}, {"band", getCurrentBand()->bandName},
@@ -648,6 +752,316 @@ static const String webRadioPage()
   }, {
     {"navigation", [](String &out) { webNavigation(out, "/"); }}
   });
+}
+
+//
+// Receiver control from the web (queued, applied on the main task)
+//
+static void webControlPage(AsyncWebServerRequest *request)
+{
+  if(!webIsAuthenticated(request)) return request->requestAuthentication();
+  request->send(200, "text/html", webPage(pageControl, pageControlTitle, {
+    {"title", pageControlTitle}
+  }, {
+    {"navigation", [](String &out) { webNavigation(out, "/control"); }},
+    {"bands", [](String &out) {
+      for(int i = 0 ; i < getTotalBands() ; i++)
+      {
+        char range[40];
+        if(bands[i].bandType == FM_BAND_TYPE)
+          snprintf(range, sizeof(range), "%.1f-%.1f MHz", bands[i].minimumFreq / 1e6, bands[i].maximumFreq / 1e6);
+        else
+          snprintf(range, sizeof(range), "%.0f-%.0f kHz", bands[i].minimumFreq / 1e3, bands[i].maximumFreq / 1e3);
+        String text = String(bands[i].bandName) + " (" + range + ")";
+        out += "<OPTION VALUE=\"" + String(i) + "\">";
+        pageAppend(out, "{{text}}", {{"text", text}});
+        out += "</OPTION>";
+      }
+    }}
+  }));
+}
+
+static void webApiStatus(AsyncWebServerRequest *request)
+{
+  if(!webIsAuthenticated(request)) return request->requestAuthentication();
+  const Band *band = getCurrentBand();
+  String json;
+  json.reserve(256);
+  json += "{\"freq\":";     json += String((uint32_t)currentFrequency);
+  json += ",\"mode\":";     json += String((int)currentMode);
+  json += ",\"modeName\":\""; json += bandModeDesc[currentMode]; json += "\"";
+  json += ",\"band\":";     json += String(bandIdx);
+  json += ",\"bandName\":\""; json += band->bandName; json += "\"";
+  json += ",\"min\":";      json += String(band->minimumFreq);
+  json += ",\"max\":";      json += String(band->maximumFreq);
+  json += ",\"step\":";     json += String(getCurrentStep()->step);
+  json += ",\"volume\":";   json += String((int)volume);
+  json += ",\"rssi\":";     json += String((int)rssi);
+  json += ",\"snr\":";      json += String((int)snr);
+  // Station name (RDS / schedule lookup): printable ASCII only, JSON-escaped
+  json += ",\"station\":\"";
+  for(const char *c = getStationName() ; c && *c ; c++)
+    if(*c >= 32 && *c < 127 && *c != '"' && *c != '\\') json += *c;
+  json += "\"";
+  // RDS extras (only filled while the radio's RDS mode collects them)
+  auto jsonText = [&](const char *key, const char *text, size_t maxLen)
+  {
+    json += ",\""; json += key; json += "\":\"";
+    size_t n = 0;
+    for(const char *c = text ; c && *c && n < maxLen ; c++)
+      if(*c >= 32 && *c < 127 && *c != '"' && *c != '\\') { json += *c; n++; }
+    json += "\"";
+  };
+  jsonText("rt", getRadioText(), 80);
+  jsonText("pty", getProgramInfo(), 20);
+  { char pi[8]; const uint16_t code = getRdsPiCode(); if(code) snprintf(pi, sizeof(pi), "%04X", code); else pi[0] = 0; jsonText("pi", pi, 6); }
+  json += "}";
+  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json);
+  response->addHeader("Cache-Control", "no-store");
+  request->send(response);
+}
+
+static bool webParseInt(AsyncWebServerRequest *request, const char *name, long minValue, long maxValue, long *out)
+{
+  const auto *p = request->getParam(name, true);
+  if(!p) return false;
+  const String &v = p->value();
+  if(!v.length()) return false;
+  char *end = nullptr;
+  long n = strtol(v.c_str(), &end, 10);
+  if(*end || n < minValue || n > maxValue) return false;
+  *out = n;
+  return true;
+}
+
+static void webApiTune(AsyncWebServerRequest *request)
+{
+  if(!webIsAuthenticated(request)) return request->requestAuthentication();
+  long freq = -1, band = -1, mode = -1, vol = -1, step = 0;
+  bool any = false;
+  if(request->hasParam("freq", true))
+  {
+    if(!webParseInt(request, "freq", 100000, 120000000, &freq)) return request->send(400, "text/plain", "Invalid frequency.");
+    any = true;
+  }
+  if(request->hasParam("band", true))
+  {
+    if(!webParseInt(request, "band", 0, getTotalBands() - 1, &band)) return request->send(400, "text/plain", "Invalid band.");
+    any = true;
+  }
+  if(request->hasParam("mode", true))
+  {
+    if(!webParseInt(request, "mode", 0, 3, &mode)) return request->send(400, "text/plain", "Invalid mode.");
+    any = true;
+  }
+  if(request->hasParam("volume", true))
+  {
+    if(!webParseInt(request, "volume", 0, 63, &vol)) return request->send(400, "text/plain", "Invalid volume.");
+    any = true;
+  }
+  if(request->hasParam("step", true))
+  {
+    if(!webParseInt(request, "step", -50, 50, &step)) return request->send(400, "text/plain", "Invalid step.");
+    any = true;
+  }
+  if(!any) return request->send(400, "text/plain", "Nothing to do.");
+
+  {
+    std::lock_guard<std::mutex> lock(radioCmd.mutex);
+    if(freq >= 0) radioCmd.freq = freq;
+    if(band >= 0) radioCmd.band = band;
+    if(mode >= 0) radioCmd.mode = mode;
+    if(vol >= 0)  radioCmd.volume = vol;
+    radioCmd.step += step;
+    radioCmd.pending = true;
+  }
+  request->send(200, "application/json", "{\"ok\":true}");
+}
+
+static void webSwitchBand(int target)
+{
+  if(target < 0 || target >= getTotalBands() || target == bandIdx) return;
+  bands[bandIdx].bandMode = currentMode;
+  bandIdx = target;
+  selectBand(bandIdx);
+  prefsRequestSave(SAVE_SETTINGS | SAVE_BANDS);
+}
+
+// Runs on the main task, so the receiver is never touched concurrently
+static void webApplyRadio()
+{
+  int64_t freq;
+  int band, mode, vol, step;
+  {
+    std::lock_guard<std::mutex> lock(radioCmd.mutex);
+    if(!radioCmd.pending) return;
+    freq = radioCmd.freq; band = radioCmd.band; mode = radioCmd.mode;
+    vol = radioCmd.volume; step = radioCmd.step;
+    radioCmd.pending = false;
+    radioCmd.freq = -1; radioCmd.band = -1; radioCmd.mode = -1; radioCmd.volume = -1; radioCmd.step = 0;
+  }
+
+  if(band >= 0) webSwitchBand(band);
+
+  // SSB/AM mode: same behaviour as the encoder (FM never changes mode)
+  if(mode > 0 && currentMode != FM)
+    for(int guard = 0 ; guard < 4 && currentMode != mode ; guard++) doMode(1);
+
+  if(freq > 0)
+  {
+    // Switch to the narrowest band that contains the frequency if the current one does not
+    const Band *b = getCurrentBand();
+    if(freq < (int64_t)b->minimumFreq || freq > (int64_t)b->maximumFreq)
+    {
+      int best = -1;
+      uint32_t bestWidth = 0xFFFFFFFF;
+      for(int i = 0 ; i < getTotalBands() ; i++)
+      {
+        uint32_t width = bands[i].maximumFreq - bands[i].minimumFreq;
+        if(freq >= (int64_t)bands[i].minimumFreq && freq <= (int64_t)bands[i].maximumFreq && width < bestWidth)
+        { best = i; bestWidth = width; }
+      }
+      if(best >= 0) webSwitchBand(best);
+    }
+    if(updateFrequency(freq, false))
+    {
+      clearStationInfo();
+      identifyFrequency(currentFrequency);
+      prefsRequestSave(SAVE_CUR_BAND);
+    }
+  }
+
+  if(step)
+  {
+    updateFrequency(currentFrequency + (int64_t)step * getCurrentStep()->step, true);
+    clearStationInfo();
+    identifyFrequency(currentFrequency);
+    prefsRequestSave(SAVE_CUR_BAND);
+  }
+
+  if(vol >= 0)
+  {
+    volume = vol;
+    rx.setVolume(volume);
+    prefsRequestSave(SAVE_SETTINGS);
+  }
+}
+
+static void webFinancePage(AsyncWebServerRequest *request, const char *message)
+{
+  char cur[4];
+  financeGetCurrency(cur, sizeof(cur));
+  const String msg(message);
+  request->send(200, "text/html", webPage(pageFinance, pageFinanceTitle, {{"title", pageFinanceTitle}, {"message", msg}}, {
+    {"navigation", [](String &out) { webNavigation(out, "/finance"); }},
+    {"options", [&](String &out) {
+      const char *list = financeCurrencyList();
+      for(const char *p = list ; *p ; p += (p[3] ? 4 : 3))
+      {
+        char code[4];
+        memcpy(code, p, 3);
+        code[3] = 0;
+        out += "<OPTION VALUE=\""; out += code; out += "\"";
+        if(!strcmp(code, cur)) out += " SELECTED";
+        out += ">"; out += code; out += "</OPTION>";
+      }
+    }}
+  }));
+}
+
+//
+// Observer position (Flights and Weather)
+//
+static void webLocationPage(AsyncWebServerRequest *request, const LocationInfo &shown, const char *message)
+{
+  char lat[16], lon[16];
+  snprintf(lat, sizeof(lat), "%.5f", shown.lat);
+  snprintf(lon, sizeof(lon), "%.5f", shown.lon);
+  char mapUrlBuf[160];
+  bool mapOnShown = true;
+  uint8_t mapStyleShown = MAP_STYLE_LIGHT;
+  locationGetMapCfg(mapUrlBuf, sizeof(mapUrlBuf), &mapOnShown, &mapStyleShown);
+  const String mapUrlShown(mapUrlBuf);
+  request->send(200, "text/html", webPage(pageLocation, pageLocationTitle, {
+    {"title", pageLocationTitle}, {"message", message},
+    {"icao", shown.icao}, {"lat", lat}, {"lon", lon},
+    {"name", shown.name}, {"label", shown.label}, {"radius", String(shown.radiusNm)},
+    {"keystate", shown.hasCartoKey ? "stored" : "not set"}, {"count", String(locationAirportCount())},
+    {"mapurl", mapUrlShown}, {"mapchecked", mapOnShown ? "checked" : ""},
+    {"sdark", mapStyleShown == MAP_STYLE_DARK ? "selected" : ""}, {"slight", mapStyleShown == MAP_STYLE_LIGHT ? "selected" : ""}, {"sauto", mapStyleShown == MAP_STYLE_AUTO ? "selected" : ""}
+  }, {
+    {"navigation", [](String &out) { webNavigation(out, "/location"); }}
+  }));
+}
+
+static void webSetLocation(AsyncWebServerRequest *request)
+{
+  if(!webIsAuthenticated(request)) return request->requestAuthentication();
+
+  auto field = [&](const char *name) -> String {
+    const auto *p = request->getParam(name, true);
+    String v = p ? p->value() : String();
+    v.trim();
+    return v;
+  };
+
+  LocationInfo current = locationGet();
+  LocationInfo next = current;
+
+  String icao = field("icao");
+  icao.toUpperCase();
+  if(icao.length())
+  {
+    LocationInfo airport;
+    if(!locationLookupIcao(icao.c_str(), &airport))
+      return webLocationPage(request, current, "ICAO code not found in the airport table. Nothing was saved.");
+    next.lat = airport.lat;
+    next.lon = airport.lon;
+    strlcpy(next.icao, airport.icao, sizeof(next.icao));
+    String name = field("name");
+    strlcpy(next.name, name.length() && name != current.name ? name.c_str() : airport.name, sizeof(next.name));
+    String label = field("label");
+    strlcpy(next.label, label.length() && label != current.label ? label.c_str() : airport.icao, sizeof(next.label));
+  }
+  else
+  {
+    String latText = field("lat"), lonText = field("lon");
+    char *endLat = nullptr, *endLon = nullptr;
+    float lat = strtof(latText.c_str(), &endLat);
+    float lon = strtof(lonText.c_str(), &endLon);
+    if(!latText.length() || !lonText.length() || *endLat || *endLon)
+      return webLocationPage(request, current, "Latitude and longitude must be numbers. Nothing was saved.");
+    next.lat = lat;
+    next.lon = lon;
+    next.icao[0] = 0;
+    String name = field("name"), label = field("label");
+    strlcpy(next.name, name.c_str(), sizeof(next.name));
+    strlcpy(next.label, label.c_str(), sizeof(next.label));
+  }
+
+  long radius = current.radiusNm;
+  const String radiusText = field("radius");
+  if(radiusText.length()) radius = radiusText.toInt();
+  next.radiusNm = (int)radius;
+
+  const String key = field("ckey");
+  const bool clearKey = request->hasParam("clearkey", true);
+  const char *keyArg = clearKey ? "" : (key.length() ? key.c_str() : nullptr);
+
+  const char *error = locationRequestSet(next, keyArg);
+  if(error) return webLocationPage(request, current, (String(error) + " Nothing was saved.").c_str());
+
+  String mapUrl = field("mapurl");
+  const bool mapOn = request->hasParam("mapon", true);
+  const char *mapError = locationRequestMapCfg(mapUrl.c_str(), mapOn, (uint8_t)(field("mapstyle").length() ? constrain(field("mapstyle").toInt(), 0, 2) : (int)MAP_STYLE_LIGHT));
+  if(mapError)
+  {
+    next.hasCartoKey = keyArg ? keyArg[0] != 0 : current.hasCartoKey;
+    return webLocationPage(request, next, (String("Position saved, but the map settings were not: ") + mapError).c_str());
+  }
+
+  next.hasCartoKey = keyArg ? keyArg[0] != 0 : current.hasCartoKey;
+  webLocationPage(request, next, "Saved. Flights and Weather will use the new position.");
 }
 
 static void webSetMemories(AsyncWebServerRequest *request)

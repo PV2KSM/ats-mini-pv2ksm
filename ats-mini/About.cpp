@@ -135,6 +135,33 @@ static void drawAboutAuthors(uint8_t arrow)
   spr.drawString(AUTHORS_LINE2, 2, 70 + 16, FONT_SMALL);
   spr.drawString(AUTHORS_LINE3, 2, 70 + 16 * 2, FONT_SMALL);
   spr.drawString(AUTHORS_LINE4, 2, 70 + 16 * 3, FONT_SMALL);
+  spr.setTextColor(TH.text_muted);
+  spr.drawString(MOD_LINE1, 2, 70 + 16 * 4, FONT_SMALL);
+  spr.drawString(MOD_LINE2, 2, 70 + 16 * 5, FONT_SMALL);
+  spr.pushSprite(0, 0);
+}
+
+//
+// Show CREDITS screen (data sources used by the added features)
+//
+static void drawAboutCredits(uint8_t arrow)
+{
+  drawAboutCommon(arrow);
+  static const char *const lines[] =
+  {
+    "Map: (c) OpenStreetMap, CARTO",
+    "Weather: Open-Meteo.com (CC BY 4.0)",
+    "Rain radar: RainViewer.com",
+    "Flights: adsb.lol  METAR: NOAA AWC",
+    "Prices: Coinbase, Frankfurter (ECB)",
+    "Airports: OurAirports  Font: B612",
+    "Added features by PV2KSM",
+  };
+  for(int i = 0 ; i < 7 ; i++)
+  {
+    spr.setTextColor(i == 6 ? TH.text_muted : TH.text);
+    spr.drawString(lines[i], 2, 54 + 16 * i, FONT_SMALL);
+  }
   spr.pushSprite(0, 0);
 }
 
@@ -147,7 +174,8 @@ void drawAbout()
   {
     case 0: drawAboutHelp(1); break;
     case 1: drawAboutAuthors(3); break;
-    case 2: drawAboutSystem(2); break;
+    case 2: drawAboutSystem(3); break;
+    case 3: drawAboutCredits(2); break;
     default: break;
   }
 }
