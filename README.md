@@ -1,5 +1,7 @@
 # ATS Mini
 
+> **This fork is the PV2KSM community mod (v2.45 r28)** — new UI layouts, flights, weather, finance and web live screen. See [README-PV2KSM.md](README-PV2KSM.md) for what was tested, screenshots and downloads. Unofficial; not affiliated with the original project.
+
 ![](docs/source/_static/esp32-si4732-ui-theme.jpg)
 
 This firmware is for use on the SI4732 (ESP32-S3) Mini/Pocket Receiver
