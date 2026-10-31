@@ -59,6 +59,10 @@ The names and titles in the Carousel and Grid menus now follow **Settings → La
 ### Web interface
 *Config → UI*: new selectors **Accent color, Text color, Background, Menu color, Menu style** (the layout list shows the new layouts).
 
+### Fixes (issue #3, thanks G8PTN)
+- Web UI **Location** page now shows the just-saved *Show map* / *Map style* / tile URL right after Save.
+- **Flights** screen without a map now follows the *Background* setting instead of always black.
+
 ### Not in this release
 No CPU-speed option (the radio stays at 80 MHz). Japanese/Chinese are not included yet.
 
@@ -118,6 +122,7 @@ Credits: ESP32-SI4732 / ATS-Mini (MIT) · B612 font (SIL OFL 1.1) · LovyanGFX �
 - **9 layouts novos:** Neo Analog, Neo S-Meter, Vintage, Clock, Memories (memórias como marcadores), Minimal, VFD, LCD e Neon.
 - **Idioma:** nomes e títulos dos menus Carrossel/Grade seguem *Configurações → Idioma* (PT/EN/ES, sem acentos). Os seletores da página web também foram traduzidos.
 - **Página web (Config):** novos seletores de cor de destaque, cor do texto, fundo, cor do menu e estilo do menu.
+- **Correções (issue #3, obrigado G8PTN):** a página web *Location* agora mostra na hora os valores de *Show map* / *Map style* salvos; a tela *Flights* sem mapa segue a configuração *Background* em vez de ficar sempre preta.
 - **Fora desta versão:** opção de velocidade da CPU; japonês e chinês.
 
 **Como atualizar:** faça backup → abra o IP do rádio → *Update* → *Manual upload* → escolha o `*-ota.bin` da sua variante. Para usar o visual novo: **Menu → Visual → Menu style → Carrossel ou Grade**; para voltar: **Original**.
