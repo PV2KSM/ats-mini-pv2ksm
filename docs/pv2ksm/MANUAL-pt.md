@@ -1,6 +1,6 @@
 # Mod PV2KSM r30 - manual do usuário
 
-Mod comunitário não oficial baseado no ATS-Mini v2.45 (MIT). Só a variante **OSPI** foi testada em hardware real (e a r30 em si ainda não foi testada no rádio: veja *O que não foi testado*). O que não está descrito aqui funciona como no [manual oficial](../source/manual.md).
+Mod comunitário não oficial baseado no ATS-Mini v2.45 (MIT). Só a variante **OSPI** foi testada em hardware real (a r30 foi testada no rádio OSPI por PV2KSM: OK). O que não está descrito aqui funciona como no [manual oficial](../source/manual.md).
 
 Other languages: [EN](MANUAL-en.md) · [ES](MANUAL-es.md)
 
@@ -89,7 +89,6 @@ Baixe o `.bin` da sua variante na página da release e, na interface web do rád
 
 ## O que não foi testado
 
-- A r30 (troca de idioma, Finance com euro, páginas web traduzidas) **ainda não foi testada no rádio**.
 - Builds QSPI e LilyGO T-Embed: só compiladas.
 - Layouts Cockpit e Avionics: precisam de mais testes em hardware.
 - Importação de backup não foi testada em hardware.
