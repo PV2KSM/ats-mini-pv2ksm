@@ -14,6 +14,7 @@
 #include "Memories.h"
 #include "Patches.h"
 #include "Storage.h"
+#include "I18n.h"
 
 #include <time.h>
 
@@ -152,7 +153,8 @@ static const char *menu[] =
 #define MENU_TCPMODE      18
 #define MENU_BLEMODE      19
 #define MENU_WIFIMODE     20
-#define MENU_ABOUT        21
+#define MENU_LANG         21
+#define MENU_ABOUT        22
 
 
 static uint8_t updateFwIdx = 0;
@@ -183,6 +185,7 @@ static const char *settings[] =
   "TCP Port",
   "Bluetooth",
   "Wi-Fi",
+  "Language",
   "About",
 };
 
@@ -744,6 +747,12 @@ static void doUILayout(int16_t enc)
   prefsRequestSave(SAVE_SETTINGS);
 }
 
+static void doLanguage(int16_t enc)
+{
+  uiLang = uiLang >= LANG_TOTAL ? LANG_PT : wrap_range(uiLang, enc, 0, LANG_TOTAL - 1);
+  prefsRequestSave(SAVE_SETTINGS);
+}
+
 void doAvc(int16_t enc)
 {
   // Only allow for AM and SSB modes
@@ -1273,6 +1282,7 @@ static void clickSettings(int cmd, bool shortPress)
     case MENU_FM_REGION:  currentCmd = CMD_FM_REGION; break;
     case MENU_FM_STEREO:  currentCmd = CMD_FM_STEREO; break;
     case MENU_DSP_PATCHES: currentCmd = CMD_DSP_PATCHES; break;
+    case MENU_LANG:       currentCmd = CMD_LANG;      break;
     case MENU_ABOUT:      currentCmd = CMD_ABOUT;     break;
     case MENU_UPDATEFW:
       updateFwIdx = 0;
@@ -1310,6 +1320,7 @@ bool doSideBar(uint16_t cmd, int16_t enc, int16_t enca)
     case CMD_CAL:        doCal(enca);break;
     case CMD_THEME:      doTheme(scrollDirection * enc);break;
     case CMD_UI:         doUILayout(scrollDirection * enc);break;
+    case CMD_LANG:       doLanguage(scrollDirection * enc);break;
     case CMD_RDS:        doRDSMode(scrollDirection * enc);break;
     case CMD_MEMORY:     doMemory(scrollDirection * enca);break;
     case CMD_OFFTIMER:   doOffTimer(enca);break;
@@ -1768,6 +1779,30 @@ static void drawUILayout(int x, int y, int sx)
 
     spr.setTextDatum(MC_DATUM);
     spr.drawString(uiLayoutDesc[abs((uiLayoutIdx+count+i)%count)], 40+x+(sx/2), 64+y+(i*16), FONT_SMALL);
+  }
+}
+
+static void drawLanguage(int x, int y, int sx)
+{
+  drawCommon(settings[MENU_LANG], x, y, sx, true);
+
+  const int count = LANG_TOTAL;
+  for(int i=-2 ; i<3 ; i++)
+  {
+    if(i==0) {
+      drawZoomedMenu(uiLangDesc[abs((uiLang+count+i)%count)]);
+      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+    } else {
+      spr.setTextColor(TH.menu_item);
+    }
+
+    // Prevent repeats for short menus
+    if (count < 5 && ((uiLang+i) < 0 || (uiLang+i) >= count)) {
+      continue;
+    }
+
+    spr.setTextDatum(MC_DATUM);
+    spr.drawString(uiLangDesc[abs((uiLang+count+i)%count)], 40+x+(sx/2), 64+y+(i*16), FONT_SMALL);
   }
 }
 
@@ -2259,6 +2294,7 @@ void drawSideBar(uint16_t cmd, int x, int y, int sx)
     case CMD_BANDWIDTH:  drawBandwidth(x, y, sx);  break;
     case CMD_THEME:      drawTheme(x, y, sx);      break;
     case CMD_UI:         drawUILayout(x, y, sx);   break;
+    case CMD_LANG:       drawLanguage(x, y, sx);   break;
     case CMD_VOLUME:     drawVolume(x, y, sx);     break;
     case CMD_AGC:        drawAgc(x, y, sx);        break;
     case CMD_SOFTMUTE:   drawSoftMuteMaxAtt(x, y, sx);break;

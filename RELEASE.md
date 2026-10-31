@@ -1,4 +1,4 @@
-# ATS-Mini v2.45 — PV2KSM r28 (community mod)
+# ATS-Mini v2.45 — PV2KSM r30 (community mod)
 
 **Unofficial community mod by PV2KSM (PY2/PV2KSM), free, no warranty.** Based on the open-source [ESP32-SI4732 / ATS-Mini](https://github.com/esp32-si4732/ats-mini) firmware v2.45 (MIT, © 2025 ESP32-SI4732 Radio — see `LICENSE` and `NOTICE.txt`). Not affiliated with or endorsed by the original project.
 
@@ -12,15 +12,17 @@
 Flash **only the file for your own variant** (the web updater refuses the wrong one). Please report results for QSPI / LilyGO in *Issues*.
 
 What was checked on the OSPI radio: web UI pages (Control, Memory, Finance, Backup, Config, Update, Patches), the **Analog** layout (live mirror on the Control tab), and the Weather (now / days / hours / METAR / rain radar), Flights (list + detail) and Finance screens.
-Not yet confirmed on real hardware: the **Cockpit** and **Avionics** layouts (only checked as PC renders), full-flash "merged" images, backup *import*.
+**The r30 additions (languages, euro, translated web pages) have not been tested on the radio yet.** Not yet confirmed on real hardware: the **Cockpit** and **Avionics** layouts (only checked as PC renders), full-flash "merged" images, backup *import*.
 Known: with a weak battery the radio can reboot while Wi-Fi is on (charge it or turn Wi-Fi off). A user reported ~170 mA draw with Wi-Fi enabled; the reboot depends on the hardware, worse with a weak 3V3 regulator.
 Known: the flights service occasionally reported `TLS erro (-1)` on the Services screen (retries work).
 
 ## What's new
+- **r30: languages** — English (default on a fresh install), Portuguese and Spanish on the Flights, Weather, Finance, Network, METAR and rain-radar screens and on the whole web interface. Change it in **Settings → Language** (radio) or **Config → Language** (browser). Full manuals in EN/PT/ES: [docs/pv2ksm](https://github.com/PV2KSM/ats-mini-pv2ksm/tree/pv2ksm-r30/docs/pv2ksm).
+- **r30: Finance** now shows US dollar, **euro** and Bitcoin.
 - **UI layouts** (Settings → UI Layout / Theme): **Cockpit** (airliner radio panel, ACTIVE/STANDBY), **Analog** (tuning scale with red pointer + analog S/SNR dials), **Avionics** (GA-radio look, red 7-segment LED).
 - **Flights**: adsb.lol tracker with map background (CARTO/OSM, your own key) and nearby airports.
 - **Weather**: now, next days, next hours, **METAR**, **rain radar** (Open-Meteo, aviationweather.gov, RainViewer). Fetched only while the Weather screen is open.
-- **Finance**: USD and Bitcoin in your local currency (Coinbase / Frankfurter-ECB).
+- **Finance**: USD, EUR and Bitcoin in your local currency (Coinbase / Frankfurter-ECB).
 - **Web UI**: live radio screen on the *Control* tab, Backup export/import, Location (ICAO or lat/lon), Finance, Status with "you are tuned to" + RDS.
 - Stability: network tasks on core 1, Wi-Fi power-save off, "Last reset" diagnostic.
 
@@ -29,25 +31,25 @@ Known: the flights service occasionally reported `TLS erro (-1)` on the Services
 
 | Weather now | Next days | Next hours |
 |---|---|---|
-| ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/radio-weather-now.jpg) | ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/radio-weather-days.jpg) | ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/radio-weather-hours.jpg) |
+| ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/radio-weather-now.jpg) | ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/radio-weather-days.jpg) | ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/radio-weather-hours.jpg) |
 
 | METAR | Rain radar | Finance |
 |---|---|---|
-| ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/radio-metar.jpg) | ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/radio-rain-radar.jpg) | ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/radio-finance.jpg) |
+| ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/radio-metar.jpg) | ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/radio-rain-radar.jpg) | ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/radio-finance.jpg) |
 
 | Flights | Flight detail |
 |---|---|
-| ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/radio-flights.jpg) | ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/radio-flight-detail.jpg) |
+| ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/radio-flights.jpg) | ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/radio-flight-detail.jpg) |
 
 **Web interface**
 
 | Control (live screen) | Memory | Config |
 |---|---|---|
-| <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/web-control.jpg" width="220"> | <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/web-memory.jpg" width="220"> | <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/web-config.jpg" width="220"> |
+| <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/web-control.jpg" width="220"> | <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/web-memory.jpg" width="220"> | <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/web-config.jpg" width="220"> |
 
 | Finance | Backup | Update | Patches |
 |---|---|---|---|
-| <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/web-finance.jpg" width="170"> | <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/web-backup.jpg" width="170"> | <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/web-update.jpg" width="170"> | <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r28/docs/pv2ksm/screenshots/web-patches.jpg" width="170"> |
+| <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/web-finance.jpg" width="170"> | <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/web-backup.jpg" width="170"> | <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/web-update.jpg" width="170"> | <img src="https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30/docs/pv2ksm/screenshots/web-patches.jpg" width="170"> |
 
 ## Files
 | File | Use |

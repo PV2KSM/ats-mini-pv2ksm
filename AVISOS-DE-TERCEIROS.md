@@ -13,6 +13,6 @@ Este firmware usa dados e componentes de terceiros. Cada um mantém seus própri
 | aviationweather.gov (NOAA/NWS) | METAR | Dados públicos dos EUA | |
 | RainViewer | Radar de chuva | API gratuita para uso pessoal e educacional; zoom máx. 7, só radar passado | Uso comercial: falar com o suporte. https://www.rainviewer.com/api/transition-faq.html |
 | Coinbase (preço spot) | Bitcoin | API pública | Confira os termos |
-| Frankfurter (dados do BCE) | Câmbio | API pública | Confira os termos |
+| Frankfurter (dados do BCE) | Câmbio: dólar, euro e moeda local | API pública | Confira os termos |
 
 Este é um resumo informativo, não aconselhamento jurídico. / This is an informational summary, not legal advice.

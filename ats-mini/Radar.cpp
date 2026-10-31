@@ -22,6 +22,7 @@
 #include <math.h>
 #include <time.h>
 #include <string.h>
+#include "I18n.h"
 
 #define RADAR_W           320
 #define RADAR_H           170
@@ -38,7 +39,7 @@ static uint8_t *tileBuf = nullptr;
 static uint8_t *shownImg = nullptr;           // What the screen shows (raw 16-bit sprite buffer layout)
 static uint8_t *baseImg = nullptr;            // Dimmed base map, without rain
 static bool shownValid = false;
-static char status[32] = "Radar: aguardando";
+static char status[32] = "";
 static uint32_t frameTime = 0;                // UTC epoch of the radar frame shown
 static int shownZoom = 6;
 static int zoomSel = 6;
@@ -124,8 +125,8 @@ static void buildRadar()
   const uint32_t g = gen;
   const int z = zoomSel;
 
-  if(WiFi.status() != WL_CONNECTED) { setStatus("Radar: sem Wi-Fi"); lastFailed = true; lastTryMs = millis(); return; }
-  if(!clockGetDate(nullptr, nullptr, nullptr, nullptr)) { setStatus("Radar: sem hora"); lastFailed = true; lastTryMs = millis(); return; }
+  if(WiFi.status() != WL_CONNECTED) { setStatus(tr(T_RADAR_NO_WIFI)); lastFailed = true; lastTryMs = millis(); return; }
+  if(!clockGetDate(nullptr, nullptr, nullptr, nullptr)) { setStatus(tr(T_RADAR_NO_TIME)); lastFailed = true; lastTryMs = millis(); return; }
 
   const size_t imgBytes = RADAR_W * RADAR_H * 2;
   if(!tileBuf) tileBuf = (uint8_t *)heap_caps_malloc(RADAR_TILE_MAX, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -134,7 +135,7 @@ static void buildRadar()
   LGFX_Sprite work;
   work.setColorDepth(16);
   work.setPsram(true);
-  if(!tileBuf || !baseImg || !shownImg || !work.createSprite(RADAR_W, RADAR_H)) { setStatus("Radar: sem memoria"); lastFailed = true; lastTryMs = millis(); return; }
+  if(!tileBuf || !baseImg || !shownImg || !work.createSprite(RADAR_W, RADAR_H)) { setStatus(tr(T_RADAR_NO_MEM)); lastFailed = true; lastTryMs = millis(); return; }
   uint8_t *wbuf = (uint8_t *)work.getBuffer();
 
   double px, py;
@@ -145,7 +146,7 @@ static void buildRadar()
   const int maxT = (1 << z) - 1;
 
   const bool haveNet = netLock(40000);
-  if(!haveNet) { setStatus("Radar: rede ocupada"); lastFailed = true; lastTryMs = millis(); return; }
+  if(!haveNet) { setStatus(tr(T_RADAR_BUSY)); lastFailed = true; lastTryMs = millis(); return; }
   bool anyBase = false, anyRain = false, failedAny = false;
   char url[200], msg[32];
 
@@ -171,7 +172,7 @@ static void buildRadar()
         if(ty < 0 || ty > maxT) continue;
         const int txw = ((tx % (maxT + 1)) + (maxT + 1)) % (maxT + 1);
         n++;
-        snprintf(msg, sizeof(msg), "Radar: mapa %d/%d", n, total);
+        snprintf(msg, sizeof(msg), tr(T_RADAR_MAP), n, total);
         setStatus(msg);
         if(!mapTileUrl(url, sizeof(url), z, txw, ty, false)) { failedAny = true; continue; }
         size_t len = 0;
@@ -202,7 +203,7 @@ static void buildRadar()
   // ---- RainViewer: index, then the tiles of the latest frame ----
   uint32_t ftime = 0;
   {
-    setStatus("Radar: chuva");
+    setStatus(tr(T_RADAR_RAIN));
     char err[40];
     const size_t bodyCap = 6144;
     char *body = (char *)heap_caps_malloc(bodyCap, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -245,7 +246,7 @@ static void buildRadar()
           if(ty < 0 || ty > maxT) continue;
           const int txw = ((tx % (maxT + 1)) + (maxT + 1)) % (maxT + 1);
           n++;
-          snprintf(msg, sizeof(msg), "Radar: chuva %d/%d", n, total);
+          snprintf(msg, sizeof(msg), tr(T_RADAR_RAIN_N), n, total);
           setStatus(msg);
           snprintf(url, sizeof(url), "%s%s/256/%d/%d/%d/2/1_1.png", host, path, z, txw, ty);
           size_t len = 0;
@@ -263,7 +264,7 @@ static void buildRadar()
   }
   netUnlock();
 
-  if(!anyBase && !anyRain) { setStatus("Radar: falha na rede"); lastFailed = true; lastTryMs = millis(); return; }
+  if(!anyBase && !anyRain) { setStatus(tr(T_RADAR_FAIL)); lastFailed = true; lastTryMs = millis(); return; }
 
   lock();
   memcpy(shownImg, wbuf, imgBytes);
@@ -271,7 +272,7 @@ static void buildRadar()
   shownZoom = z;
   shownGen = g;
   frameTime = ftime;
-  snprintf(status, sizeof(status), "%s", anyRain ? (failedAny ? "parcial" : "") : "sem chuva (rede)");
+  snprintf(status, sizeof(status), "%s", anyRain ? (failedAny ? tr(T_RADAR_PARTIAL) : "") : tr(T_RADAR_NO_RAIN));
   unlock();
   lastFailed = !anyRain;
   lastOkMs = millis();
@@ -342,9 +343,9 @@ void radarDraw(LGFX_Sprite &spr)
     time_t t = (time_t)ft + getCurrentUTCOffset() * 15 * 60;
     struct tm tmv;
     gmtime_r(&t, &tmv);
-    snprintf(buf, sizeof(buf), "CHUVA %02d:%02d  z%d", tmv.tm_hour, tmv.tm_min, zoom);
+    snprintf(buf, sizeof(buf), tr(T_RADAR_TITLE_T), tmv.tm_hour, tmv.tm_min, zoom);
   }
-  else snprintf(buf, sizeof(buf), "RADAR DE CHUVA");
+  else snprintf(buf, sizeof(buf), "%s", tr(T_RADAR_TITLE));
   int w = strlen(buf) * 6 + 8;
   chip(3, 3, w, 12);
   spr.setTextColor(cAcc);
@@ -404,12 +405,12 @@ void radarDraw(LGFX_Sprite &spr)
   {
     spr.setTextDatum(MC_DATUM);
     spr.setTextColor(cTxt);
-    spr.drawString("Carregando radar...", cx, cy + 30, FONT_SMALL);
+    spr.drawString(tr(T_RADAR_LOADING), cx, cy + 30, FONT_SMALL);
     spr.setTextDatum(TL_DATUM);
   }
 
   // Hint (bottom right)
   chip(RADAR_W - 3 - 90, RADAR_H - 17, 90, 14);
   spr.setTextColor(cDim);
-  spr.drawString("clique: zoom", RADAR_W - 3 - 86, RADAR_H - 14, FONT_DEFAULT);
+  spr.drawString(tr(T_RADAR_ZOOM), RADAR_W - 3 - 86, RADAR_H - 14, FONT_DEFAULT);
 }

@@ -22,6 +22,7 @@
 #include <esp_heap_caps.h>
 #include <math.h>
 #include <string.h>
+#include "I18n.h"
 
 #define MAP_TASK_STACK    20480
 #define MAP_TILE_MAX      (96 * 1024)     // Largest PNG accepted
@@ -178,7 +179,7 @@ static int lastHttp = 0;
 static bool fetchTile(HTTPClient &http, NetworkClientSecure &client, const char *tpl, const char *key, int z, int x, int y, bool light, size_t *len)
 {
   char url[320];
-  if(!buildUrl(url, sizeof(url), tpl, key, z, x, y, light)) { setStatus("Mapa: URL longa"); return false; }
+  if(!buildUrl(url, sizeof(url), tpl, key, z, x, y, light)) { setStatus(tr(T_MAP_URL)); return false; }
   if(!http.begin(client, url)) { setStatus("Mapa: http.begin"); return false; }
   http.addHeader("Accept", "image/png");
   int code = http.GET();
@@ -186,8 +187,8 @@ static bool fetchTile(HTTPClient &http, NetworkClientSecure &client, const char 
   if(code != HTTP_CODE_OK)
   {
     char msg[28];
-    if(code < 0) snprintf(msg, sizeof(msg), "Mapa: rede (%d)", code);
-    else snprintf(msg, sizeof(msg), "Mapa: HTTP %d", code);
+    if(code < 0) snprintf(msg, sizeof(msg), tr(T_MAP_NET), code);
+    else snprintf(msg, sizeof(msg), tr(T_MAP_HTTP), code);
     setStatus(msg);
     http.end();
     return false;
@@ -195,7 +196,7 @@ static bool fetchTile(HTTPClient &http, NetworkClientSecure &client, const char 
   TileSink sink;
   http.writeToStream(&sink);
   http.end();
-  if(sink.overflow || sink.len < 64) { setStatus("Mapa: tile invalido"); return false; }
+  if(sink.overflow || sink.len < 64) { setStatus(tr(T_MAP_TILE_BAD)); return false; }
   *len = sink.len;
   return true;
 }
@@ -229,13 +230,13 @@ static void buildMapLocked()
   diagStage(DG_MAP_START);
 
   if(!on) { lock(); shownValid = false; status[0] = 0; unlock(); builtGen = gen; return; }
-  if(WiFi.status() != WL_CONNECTED) { setStatus("Mapa: sem Wi-Fi"); return; }
-  if(!clockGetDate(nullptr, nullptr, nullptr, nullptr)) { setStatus("Mapa: sem hora"); return; }
+  if(WiFi.status() != WL_CONNECTED) { setStatus(tr(T_MAP_NO_WIFI)); return; }
+  if(!clockGetDate(nullptr, nullptr, nullptr, nullptr)) { setStatus(tr(T_MAP_NO_TIME)); return; }
 
   if(!tileBuf) tileBuf = (uint8_t *)heap_caps_malloc(MAP_TILE_MAX, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if(!tileBuf) tileBuf = (uint8_t *)malloc(32 * 1024);   // Small fallback: larger tiles are rejected
   uint16_t *work = (uint16_t *)heap_caps_calloc(MAP_W * MAP_H, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-  if(!tileBuf || !work) { if(work) heap_caps_free(work); setStatus("Mapa: sem memoria"); return; }
+  if(!tileBuf || !work) { if(work) heap_caps_free(work); setStatus(tr(T_MAP_NO_MEM)); return; }
 
   // Scale: MAP_R px (centre to top/bottom edge) = the configured range
   const double lat = loc.lat, lonv = loc.lon;
@@ -281,7 +282,7 @@ static void buildMapLocked()
   LGFX_Sprite tile;
   tile.setColorDepth(16);
   tile.setPsram(true);
-  if(!tile.createSprite(256, 256)) { heap_caps_free(work); setStatus("Mapa: sem memoria"); return; }
+  if(!tile.createSprite(256, 256)) { heap_caps_free(work); setStatus(tr(T_MAP_NO_MEM)); return; }
   const uint16_t *raw = (const uint16_t *)tile.getBuffer();
 
   NetworkClientSecure client;
@@ -306,7 +307,7 @@ static void buildMapLocked()
       if(ty < 0 || ty > maxT) continue;
       const int txw = ((tx % (maxT + 1)) + (maxT + 1)) % (maxT + 1);   // Wrap around the antimeridian
       wantTiles++;
-      snprintf(msg, sizeof(msg), "Mapa: tile %d/%d", wantTiles, allTiles);
+      snprintf(msg, sizeof(msg), tr(T_MAP_TILE_N), wantTiles, allTiles);
       setStatus(msg);
       size_t len = 0;
       diagStage(DG_MAP_FETCH, wantTiles);
@@ -319,7 +320,7 @@ static void buildMapLocked()
       }
       diagStage(DG_MAP_DECODE, wantTiles);
       tile.fillSprite(tile.color565(12, 16, 22));
-      if(!tile.drawPng(tileBuf, len, 0, 0)) { setStatus("Mapa: PNG invalido"); continue; }
+      if(!tile.drawPng(tileBuf, len, 0, 0)) { setStatus(tr(T_MAP_PNG)); continue; }
       okTiles++;
       vTaskDelay(2);
       diagStage(DG_MAP_RESAMPLE, wantTiles);
@@ -372,7 +373,7 @@ static void buildMapLocked()
     shownLight = light;
     mapOkMs = millis();
   }
-  snprintf(status, sizeof(status), "%s", okTiles < wantTiles ? "Mapa parcial" : "");
+  snprintf(status, sizeof(status), "%s", okTiles < wantTiles ? tr(T_MAP_PARTIAL) : "");
   unlock();
   heap_caps_free(work);
   builtGen = gen;

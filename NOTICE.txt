@@ -1,4 +1,4 @@
-ATS-Mini v2.45 - PV2KSM r28 (modified version)
+ATS-Mini v2.45 - PV2KSM r30 (modified version)
 
 This firmware is a modified version of the open-source ESP32-SI4732 / ATS-Mini project
 (https://esp32-si4732.github.io/ats-mini/), licensed under the MIT License:

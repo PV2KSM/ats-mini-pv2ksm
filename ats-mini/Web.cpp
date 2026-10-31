@@ -13,6 +13,7 @@
 #include "Patches.h"
 #include "PageTemplate.h"
 #include "PageCommon.h"
+#include "WebI18n.h"
 #include "PageStatus.h"
 #include "PageMemory.h"
 #include "PageConfig.h"
@@ -37,6 +38,7 @@
 #include <LittleFS.h>
 #include <time.h>
 #include <esp_heap_caps.h>
+#include "I18n.h"
 
 #define SPLASH_MAX_FILE_SIZE (512U * 1024U)
 
@@ -73,7 +75,7 @@ static struct
   std::mutex mutex;
   bool pending = false;
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
-  int usbMode, tcpMode, bleMode, rds;
+  int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
   bool clamp, reverseScroll, halfStep, zoom;
   bool setClock;
@@ -195,6 +197,7 @@ bool webTick()
     zoomMenu = configSettings.zoom;
     setEncoderHalfStep(configSettings.halfStep);
     uiLayoutIdx = configSettings.layout;
+    if(configSettings.lang >= 0 && configSettings.lang < LANG_TOTAL) uiLang = configSettings.lang;
     if(FmRegionIdx != configSettings.region)
       doFmRegion(configSettings.region - FmRegionIdx);
     if(fmStereoIdx != configSettings.stereo)
@@ -333,6 +336,10 @@ void webInit()
     request->send(200, "text/html", webWiFiPage());
   });
   server.on("/wifi", HTTP_POST, webSetWiFi);
+
+  server.on("/i18n.js", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    request->send_P(200, "application/javascript", (const uint8_t *)webI18nJs, sizeof(webI18nJs) - 1);
+  });
 
   server.on("/screenshot.bmp", HTTP_GET, [] (AsyncWebServerRequest *request) {
     if(!webIsAuthenticated(request)) return request->requestAuthentication();
@@ -496,9 +503,10 @@ void webSetConfig(AsyncWebServerRequest *request)
   if(!webIsAuthenticated(request)) return request->requestAuthentication();
 
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
-  int usbMode, tcpMode, bleMode, rds;
+  int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
   if(!webConfigNumber(request, "uilayout", layout, 0, getTotalUILayouts() - 1) ||
+     !webConfigNumber(request, "lang", lang, 0, getTotalLanguages() - 1) ||
      !webConfigNumber(request, "fmregion", region, 0, getTotalFMRegions() - 1) ||
      !webConfigNumber(request, "fmstereo", stereo, 0, getTotalFMStereoModes() - 1) ||
      !webConfigNumber(request, "brightness", brightness, 10, 255, 5) ||
@@ -577,6 +585,7 @@ void webSetConfig(AsyncWebServerRequest *request)
     configSettings.setClock = setClock;
     configSettings.epoch = setClock? epoch : 0;
     configSettings.layout = layout;
+    configSettings.lang = lang;
     configSettings.region = region;
     configSettings.stereo = stereo;
     configSettings.brightness = brightness;
@@ -674,7 +683,7 @@ static String webPage(const char *body, const char *title, std::initializer_list
 {
   String page;
   pageReserve(page, sizeof(pageStart) + strlen(title) + strlen(body) + sizeof(pageEnd) + 64);
-  pageAppend(page, pageStart, {{"title", title}});
+  pageAppend(page, pageStart, {{"title", title}, {"lang", uiLang==LANG_PT? "pt" : uiLang==LANG_ES? "es" : "en"}});
   pageAppend(page, body, values, fragments);
   pageReserve(page, sizeof(pageEnd) + 64);
   // Snapshot after allocating the page, before the HTTP response copies it.
@@ -1210,7 +1219,7 @@ static void webConfigOptions(String &out, const char *const *labels, int count, 
 const String webConfigPage()
 {
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
-  int usbMode, tcpMode, bleMode, rds;
+  int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
   bool clamp, reverseScroll, halfStep, zoom;
   {
@@ -1223,6 +1232,7 @@ const String webConfigPage()
     halfStep = configSettings.pending ? configSettings.halfStep : encoderHalfStep;
     rds = configSettings.pending ? configSettings.rds : rdsModeIdx;
     layout = configSettings.pending ? configSettings.layout : uiLayoutIdx;
+    lang = configSettings.pending ? configSettings.lang : uiLang;
     region = configSettings.pending ? configSettings.region : FmRegionIdx;
     stereo = configSettings.pending ? configSettings.stereo : fmStereoIdx;
     brightness = configSettings.pending ? configSettings.brightness : currentBrt;
@@ -1250,6 +1260,7 @@ const String webConfigPage()
     {"tcp_options", [&](String &out) { webConfigOptions(out, tcpModeDesc, getTotalTCPModes(), tcpMode); }},
     {"ble_options", [&](String &out) { webConfigOptions(out, bleModeDesc, getTotalBluetoothModes(), bleMode); }},
     {"layout_options", [&](String &out) { webConfigOptions(out, uiLayoutDesc, getTotalUILayouts(), layout); }},
+    {"lang_options", [&](String &out) { webConfigOptions(out, uiLangDesc, getTotalLanguages(), lang); }},
     {"rds_options", [&](String &out) {
       for(int i=0 ; i<getTotalRDSModes(); i++)
         pageAppend(out, pageConfigThemeOption, {

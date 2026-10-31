@@ -20,6 +20,7 @@
 #include <esp_heap_caps.h>
 #include <string.h>
 #include <math.h>
+#include "I18n.h"
 
 #define WX_REFRESH_MS     (10UL * 60UL * 1000UL)   // While the screen stays open
 #define WX_STALE_MS       (5UL * 60UL * 1000UL)    // Refetch on open if older than this
@@ -32,7 +33,7 @@ extern const uint8_t caBundleEnd[] asm("_binary_x509_crt_bundle_end");
 
 static SemaphoreHandle_t mtx = nullptr;
 static WxData data;                       // Last good data (valid=false until the first fetch works)
-static char status[40] = "Buscando clima...";
+static char status[40] = "";
 static uint32_t lastOkMs = 0;
 static uint32_t version = 0;
 static volatile bool wakeNow = false;
@@ -159,9 +160,9 @@ static void fetchWeather()
 static void fetchWeatherLocked()
 {
   LocationInfo loc = locationGet();
-  if(WiFi.status() != WL_CONNECTED) { setStatus("Sem Wi-Fi"); return; }
-  if(!clockGetDate(nullptr, nullptr, nullptr, nullptr)) { setStatus("Sem hora (NTP)"); return; }
-  if(!allocBody()) { setStatus("Sem memoria"); return; }
+  if(WiFi.status() != WL_CONNECTED) { setStatus(tr(T_NO_WIFI)); return; }
+  if(!clockGetDate(nullptr, nullptr, nullptr, nullptr)) { setStatus(tr(T_NO_TIME)); return; }
+  if(!allocBody()) { setStatus(tr(T_NO_MEM)); return; }
 
   char url[480];
   snprintf(url, sizeof(url),
@@ -189,9 +190,9 @@ static void fetchWeatherLocked()
   if(code != HTTP_CODE_OK)
   {
     char msg[40], tls[80] = "";
-    if(code > 0) snprintf(msg, sizeof(msg), "HTTP erro %d", code);
-    else if(client.lastError(tls, sizeof(tls)) != 0) snprintf(msg, sizeof(msg), "TLS erro (%d)", code);
-    else snprintf(msg, sizeof(msg), "Rede erro %d", code);
+    if(code > 0) snprintf(msg, sizeof(msg), tr(T_HTTP_ERR), code);
+    else if(client.lastError(tls, sizeof(tls)) != 0) snprintf(msg, sizeof(msg), tr(T_TLS_ERR), code);
+    else snprintf(msg, sizeof(msg), tr(T_NET_ERR), code);
     http.end();
     setStatus(msg);
     return;
@@ -200,15 +201,15 @@ static void fetchWeatherLocked()
   WxSink sink;
   int wrote = http.writeToStream(&sink);
   http.end();
-  if(sink.overflow) { setStatus("Resposta grande"); return; }
-  if(wrote < 0 || sink.len == 0) { setStatus("Leitura falhou"); return; }
+  if(sink.overflow) { setStatus(tr(T_BIG_RESP)); return; }
+  if(wrote < 0 || sink.len == 0) { setStatus(tr(T_READ_FAIL)); return; }
 
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, body, sink.len);
-  if(err) { setStatus("Erro JSON"); return; }
+  if(err) { setStatus(tr(T_JSON_ERR)); return; }
 
   WxData fresh;
-  if(!parseWeather(doc, fresh)) { setStatus("Dados invalidos"); return; }
+  if(!parseWeather(doc, fresh)) { setStatus(tr(T_BAD_DATA)); return; }
 
   lock();
   data = fresh;
@@ -230,7 +231,7 @@ static void fetchMetar()
   const LocationInfo loc = locationGet();
   if(!loc.icao[0])
   {
-    lock(); metarRaw[0] = 0; snprintf(metarStatus, sizeof(metarStatus), "Defina o ICAO na web"); version++; unlock();
+    lock(); metarRaw[0] = 0; snprintf(metarStatus, sizeof(metarStatus), "%s", tr(T_SET_ICAO)); version++; unlock();
     return;
   }
   char url[96], body[420], err[40];
@@ -244,7 +245,7 @@ static void fetchMetar()
     if(nl) *nl = 0;
     const char *p = body;
     if(!strncmp(p, "METAR ", 6) || !strncmp(p, "SPECI ", 6)) p += 6;
-    if(!*p) snprintf(metarStatus, sizeof(metarStatus), "Sem METAR p/ %s", loc.icao);
+    if(!*p) snprintf(metarStatus, sizeof(metarStatus), tr(T_NO_METAR), loc.icao);
     else
     {
       strlcpy(metarRaw, p, sizeof(metarRaw));
@@ -253,7 +254,7 @@ static void fetchMetar()
       metarStatus[0] = 0;
     }
   }
-  else if(code == 204 || code == -105) snprintf(metarStatus, sizeof(metarStatus), "Sem METAR p/ %s", loc.icao);
+  else if(code == 204 || code == -105) snprintf(metarStatus, sizeof(metarStatus), tr(T_NO_METAR), loc.icao);
   else snprintf(metarStatus, sizeof(metarStatus), "%s", err);
   version++;
   unlock();
@@ -293,7 +294,7 @@ static void decodeMetar(const char *raw, MetarInfo *m)
       char *g = strchr(t, 'G');
       if(g) gust = atoi(g + 1);
       if(vrb) snprintf(m->wind, sizeof(m->wind), "VRB %dkt", spd);
-      else if(spd == 0) snprintf(m->wind, sizeof(m->wind), "calmo");
+      else if(spd == 0) snprintf(m->wind, sizeof(m->wind), "%s", tr(T_CALM));
       else if(gust) snprintf(m->wind, sizeof(m->wind), "%.3s %dG%dkt", t, spd, gust);
       else snprintf(m->wind, sizeof(m->wind), "%.3s %dkt", t, spd);
       continue;
@@ -317,7 +318,7 @@ static void decodeMetar(const char *raw, MetarInfo *m)
       }
       continue;
     }
-    if(!strcmp(t, "NSC") || !strcmp(t, "SKC") || !strcmp(t, "CLR") || !strcmp(t, "NCD")) { if(!haveCeil) snprintf(m->ceil, sizeof(m->ceil), "sem nuvens"); haveCeil = true; continue; }
+    if(!strcmp(t, "NSC") || !strcmp(t, "SKC") || !strcmp(t, "CLR") || !strcmp(t, "NCD")) { if(!haveCeil) snprintf(m->ceil, sizeof(m->ceil), "%s", tr(T_NO_CLOUDS)); haveCeil = true; continue; }
     if(n >= 5 && n <= 7 && strchr(t, '/') && (isdigit((unsigned char)t[0]) || t[0] == 'M'))
     {
       const char *sl = strchr(t, '/');
@@ -362,7 +363,7 @@ static void drawMetarPage(LGFX_Sprite &spr, int kind, bool day, const char *plac
 
   if(!raw[0])
   {
-    wxText(spr, st[0] ? st : "Buscando METAR...", 160, 80, FONT_SMALL, st[0] ? cWarn : cW, 4, cSh);
+    wxText(spr, st[0] ? st : tr(T_SEARCHING_METAR), 160, 80, FONT_SMALL, st[0] ? cWarn : cW, 4, cSh);
     return;
   }
 
@@ -372,14 +373,14 @@ static void drawMetarPage(LGFX_Sprite &spr, int kind, bool day, const char *plac
   if(st[0]) wxText(spr, st, 306 - WX_PAGES * 10, 8, FONT_DEFAULT, cWarn, 2, cSh);
   else
   {
-    snprintf(buf, sizeof(buf), "%s%sbuscado %d min", m.time, m.time[0] ? "  " : "", ageMin);
+    snprintf(buf, sizeof(buf), "%s%s", m.time, m.time[0] ? "  " : ""); { size_t l = strlen(buf); snprintf(buf + l, sizeof(buf) - l, tr(T_FETCHED), ageMin); }
     wxText(spr, buf, 306 - WX_PAGES * 10, 8, FONT_DEFAULT, cDim, 2, cSh);
   }
 
   struct Cell { const char *label; const char *value; };
   const Cell cells[6] = {
-    {"VENTO", m.wind}, {"VISIB.", m.vis}, {"TETO", m.ceil},
-    {"TEMP/ORV", m.temp}, {"QNH", m.qnh}, {"TEMPO", m.wx},
+    {tr(T_WIND), m.wind}, {tr(T_VISIB), m.vis}, {tr(T_CEIL), m.ceil},
+    {tr(T_TEMPDEW), m.temp}, {"QNH", m.qnh}, {tr(T_WX), m.wx},
   };
   for(int i = 0 ; i < 6 ; i++)
   {
@@ -473,7 +474,7 @@ void weatherOpen()
   page = 0;
   lock();
   bool stale = !data.valid || locationDirty || !lastOkMs || (uint32_t)(millis() - lastOkMs) > WX_STALE_MS;
-  if(stale) { snprintf(status, sizeof(status), "Buscando clima..."); version++; }
+  if(stale) { snprintf(status, sizeof(status), "%s", tr(T_SEARCHING_WX)); version++; }
   const bool metarOld = !metarOkMs || (uint32_t)(millis() - metarOkMs) > WX_REFRESH_MS;
   unlock();
   locationDirty = false;

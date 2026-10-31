@@ -28,7 +28,7 @@ static const char pageControl[] PROGMEM = R"HTML(<STYLE>
 {{{navigation}}}
 <DIV CLASS="RC">
   <DIV CLASS="card" STYLE="text-align:center">
-    <IMG ID="scr" ALT="Tela do r&aacute;dio" STYLE="width:100%;max-width:640px;aspect-ratio:320/170;border-radius:10px;background:#000">
+    <IMG ID="scr" ALT="Radio screen" STYLE="width:100%;max-width:640px;aspect-ratio:320/170;border-radius:10px;background:#000">
   </DIV>
   <DIV CLASS="card">
     <DIV CLASS="freq"><SPAN ID="freq">---</SPAN> <SMALL ID="unit"></SMALL></DIV>

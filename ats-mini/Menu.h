@@ -51,7 +51,8 @@
 #define CMD_FLIGHTS    0x3700 // |
 #define CMD_WEATHER    0x3800 // |
 #define CMD_FINANCE    0x3900 // |
-#define CMD_NETWORK    0x3A00 //-+
+#define CMD_NETWORK    0x3A00 // |
+#define CMD_LANG       0x3B00 //-+
 
 // UI Layouts
 #define UI_DEFAULT  0

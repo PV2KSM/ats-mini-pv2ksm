@@ -9,6 +9,8 @@ static const char pageStart[] PROGMEM = R"HTML(<!DOCTYPE HTML>
   <META CHARSET="UTF-8">
   <META NAME="viewport" CONTENT="width=device-width, initial-scale=1.0">
   <TITLE>{{title}}</TITLE>
+  <SCRIPT>window.LANG='{{lang}}'</SCRIPT>
+  <SCRIPT SRC="/i18n.js"></SCRIPT>
   <META NAME="color-scheme" CONTENT="light dark">
   <STYLE>
     :root {

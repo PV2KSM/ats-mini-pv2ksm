@@ -9,6 +9,7 @@
 #include <WiFi.h>
 #include <esp_heap_caps.h>
 #include <string.h>
+#include "I18n.h"
 
 // Implemented by the service modules
 void flightsInfo(char *st, size_t size, uint32_t *okMs);
@@ -41,7 +42,7 @@ static inline uint16_t rgb(int r, int g, int b) { return lgfx::color565(r, g, b)
 
 static void ageText(char *out, size_t size, uint32_t okMs)
 {
-  if(!okMs) { snprintf(out, size, "nunca"); return; }
+  if(!okMs) { snprintf(out, size, "%s", tr(T_NET_NEVER)); return; }
   const uint32_t s = (millis() - okMs) / 1000;
   if(s < 90) snprintf(out, size, "%us", (unsigned)s);
   else if(s < 5400) snprintf(out, size, "%umin", (unsigned)(s / 60));
@@ -56,7 +57,7 @@ void netStatusDraw(LGFX_Sprite &spr)
   const uint16_t cW = 0xFFFF, cDim = rgb(160, 190, 215), cOk = rgb(120, 230, 170), cWarn = rgb(255, 200, 80), cBad = rgb(255, 120, 110);
   spr.setTextDatum(TL_DATUM);
   spr.setTextColor(cW);
-  spr.drawString(page == 0 ? "REDE" : "SERVICOS", 8, 5, FONT_SMALL);
+  spr.drawString(page == 0 ? tr(T_NET_TITLE) : tr(T_SVC_TITLE), 8, 5, FONT_SMALL);
   for(int i = 0 ; i < PAGES ; i++)
   {
     const int dx = 316 - (PAGES - 1 - i) * 10;
@@ -71,7 +72,7 @@ void netStatusDraw(LGFX_Sprite &spr)
     // Wi-Fi line with signal bars
     const int rssi = on ? WiFi.RSSI() : -100;
     spr.setTextColor(cDim); spr.drawString("Wi-Fi", 8, 28, FONT_DEFAULT);
-    String ssid = on ? WiFi.SSID() : String("desconectado");
+    String ssid = on ? WiFi.SSID() : String(tr(T_NET_DISCONNECTED));
     snprintf(buf, sizeof(buf), "%.22s", ssid.c_str());
     spr.setTextColor(on ? cW : cBad); spr.drawString(buf, 8, 38, FONT_SMALL);
     int level = !on ? 0 : (rssi > -55 ? 4 : rssi > -65 ? 3 : rssi > -75 ? 2 : 1);
@@ -86,13 +87,13 @@ void netStatusDraw(LGFX_Sprite &spr)
     struct Row { const char *k; char v[40]; };
     Row rows[6];
     rows[0].k = "IP";     snprintf(rows[0].v, sizeof(rows[0].v), "%s", on ? getWiFiIPAddress() : "-");
-    rows[1].k = "Canal";  snprintf(rows[1].v, sizeof(rows[1].v), "%d", on ? (int)WiFi.channel() : 0);
+    rows[1].k = tr(T_NET_CHANNEL);  snprintf(rows[1].v, sizeof(rows[1].v), "%d", on ? (int)WiFi.channel() : 0);
     rows[2].k = "MAC";    snprintf(rows[2].v, sizeof(rows[2].v), "%s", getMACAddress());
     const char *clk = clockGet();
-    rows[3].k = "Hora";   snprintf(rows[3].v, sizeof(rows[3].v), "%s %s %s", clk ? clk : "--:--", utcOffsets[utcOffsetIdx].desc, ntpIsAvailable() ? "NTP ok" : "sem NTP");
+    rows[3].k = tr(T_NET_TIME);   snprintf(rows[3].v, sizeof(rows[3].v), "%s %s %s", clk ? clk : "--:--", utcOffsets[utcOffsetIdx].desc, ntpIsAvailable() ? "NTP ok" : tr(T_NET_NO_NTP));
     const uint32_t up = millis() / 1000;
-    rows[4].k = "Ligado"; snprintf(rows[4].v, sizeof(rows[4].v), "%uh %02um", (unsigned)(up / 3600), (unsigned)((up / 60) % 60));
-    rows[5].k = "Memoria"; snprintf(rows[5].v, sizeof(rows[5].v), "heap %uk  psram %uk", (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024), (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
+    rows[4].k = tr(T_NET_UPTIME); snprintf(rows[4].v, sizeof(rows[4].v), "%uh %02um", (unsigned)(up / 3600), (unsigned)((up / 60) % 60));
+    rows[5].k = tr(T_NET_MEMORY); snprintf(rows[5].v, sizeof(rows[5].v), "heap %uk  psram %uk", (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024), (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
     for(int i = 0 ; i < 6 ; i++)
     {
       const int y = 66 + i * 15;
@@ -105,17 +106,17 @@ void netStatusDraw(LGFX_Sprite &spr)
     diagText(rst, sizeof(rst));
     char *semi = strchr(rst, ';');
     if(semi) *semi = 0;
-    snprintf(buf, sizeof(buf), "Ultimo reset: %.26s", rst);
+    snprintf(buf, sizeof(buf), tr(T_NET_RESET), rst);
     spr.setTextColor(rgb(130, 160, 185));
     spr.drawString(buf, 8, H - 11, FONT_DEFAULT);
   }
   else
   {
     struct Svc { const char *name; void (*info)(char *, size_t, uint32_t *); };
-    static const Svc svcs[] =
+    const Svc svcs[] =
     {
-      { "Voos",    flightsInfo }, { "Mapa",    mapInfo },     { "Clima",   weatherInfo },
-      { "METAR",   metarInfo },   { "Radar",   radarInfo },   { "Financas", financeInfo },
+      { tr(T_SVC_FLIGHTS), flightsInfo }, { tr(T_SVC_MAP), mapInfo }, { tr(T_SVC_WEATHER), weatherInfo },
+      { "METAR",   metarInfo },   { "Radar",   radarInfo },   { tr(T_SVC_FINANCE), financeInfo },
     };
     for(int i = 0 ; i < 6 ; i++)
     {
@@ -131,7 +132,7 @@ void netStatusDraw(LGFX_Sprite &spr)
       ageText(age, sizeof(age), okMs);
       spr.setTextColor(cDim); spr.drawString(age, 96, y + 7, FONT_DEFAULT);
       spr.setTextColor(ok ? cOk : cWarn);
-      spr.drawString(ok ? "OK" : (st[0] ? st : "aguardando"), 140, y + 3, FONT_SMALL);
+      spr.drawString(ok ? "OK" : (st[0] ? st : tr(T_WAITING)), 140, y + 3, FONT_SMALL);
     }
   }
 }

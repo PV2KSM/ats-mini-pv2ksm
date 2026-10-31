@@ -1,4 +1,4 @@
-# ATS-Mini v2.45 — PV2KSM r28 (community mod)
+# ATS-Mini v2.45 — PV2KSM r30 (community mod)
 
 **Unofficial community mod by PV2KSM (PY2/PV2KSM), free, no warranty.** Based on the open-source [ESP32-SI4732 / ATS-Mini](https://github.com/esp32-si4732/ats-mini) firmware v2.45 (MIT, © 2025 ESP32-SI4732 Radio — see `LICENSE` and `NOTICE.txt`). Not affiliated with or endorsed by the original project.
 
@@ -12,19 +12,22 @@
 Flash **only the file for your own variant** (the web updater refuses the wrong one). Please report results for QSPI / LilyGO in *Issues*.
 
 What was checked on the OSPI radio: web UI pages (Control, Memory, Finance, Backup, Config, Update, Patches), the **Analog** layout (live mirror on the Control tab), and the Weather (now / days / hours / METAR / rain radar), Flights (list + detail) and Finance screens.
-Not yet confirmed on real hardware: the **Cockpit** and **Avionics** layouts (only checked as PC renders), full-flash "merged" images, backup *import*.
+**r30 additions (languages, euro, translated web pages) have NOT been tested on the radio yet.** Not yet confirmed on real hardware: the **Cockpit** and **Avionics** layouts (only checked as PC renders), full-flash "merged" images, backup *import*.
 Known: with a weak battery the radio can reboot while Wi-Fi is on (charge it or turn Wi-Fi off). A user reported ~170 mA draw with Wi-Fi enabled; the reboot depends on the hardware, worse with a weak 3V3 regulator.
 Known: the flights service occasionally reported `TLS erro (-1)` on the Services screen (retries work).
 
 ## What's new
+- **r30: languages** — English (default on a fresh install), Portuguese and Spanish for the Flights, Weather, Finance, Network, METAR and rain-radar screens and for the whole web interface. Change it in **Settings → Language** on the radio or **Config → Language** in the browser. Manuals: [EN](docs/pv2ksm/MANUAL-en.md) · [PT](docs/pv2ksm/MANUAL-pt.md) · [ES](docs/pv2ksm/MANUAL-es.md).
 - **UI layouts** (Settings → UI Layout / Theme): **Cockpit** (airliner radio panel, ACTIVE/STANDBY), **Analog** (tuning scale with red pointer + analog S/SNR dials), **Avionics** (GA-radio look, red 7-segment LED).
 - **Flights**: adsb.lol tracker with map background (CARTO/OSM, your own key) and nearby airports.
 - **Weather**: now, next days, next hours, **METAR**, **rain radar** (Open-Meteo, aviationweather.gov, RainViewer). Fetched only while the Weather screen is open.
-- **Finance**: USD and Bitcoin in your local currency (Coinbase / Frankfurter-ECB).
+- **Finance**: US dollar, **euro** and Bitcoin in your local currency (Coinbase / Frankfurter-ECB).
 - **Web UI**: live radio screen on the *Control* tab, Backup export/import, Location (ICAO or lat/lon), Finance, Status with "you are tuned to" + RDS.
 - Stability: network tasks on core 1, Wi-Fi power-save off, "Last reset" diagnostic.
 
 ## Screenshots
+Images in English, Portuguese and Spanish (simulated renders) are in the manuals; the photos below are from the real radio (r28, Portuguese).
+
 **On the radio (OSPI)**
 
 | Weather now | Next days | Next hours |
@@ -54,7 +57,7 @@ Known: the flights service occasionally reported `TLS erro (-1)` on the Services
 |---|---|
 | `*-ota.bin` | Browser update (Update → Manual upload) |
 | `*.zip` | Variant package: OTA + full merged image (flash at 0x0) + bootloader/partitions + SHA256 |
-| `…-source.zip` | Source of this version (also on branch `pv2ksm-r28`) |
+| `…-source.zip` | Source of this version (also on branch `pv2ksm-r30`) |
 
 ## How to update
 1. **Back up** first (web UI → Backup → export; leave "include Wi-Fi/keys" **off** if you will share the file).
@@ -77,6 +80,8 @@ Credits: ESP32-SI4732 / ATS-Mini (MIT) · B612 font (SIL OFL 1.1) · LovyanGFX �
 
 **Testado no rádio OSPI:** páginas da web, layout Analog, telas de Clima (agora/dias/horas/METAR/radar), Voos e Finanças. **Ainda não confirmados em hardware:** layouts Cockpit e Avionics, imagem `merged`, importação de backup.
 
-**Novidades:** layouts Cockpit, Analog e Avionics; rastreador de voos com mapa; clima, METAR e radar de chuva; dólar e bitcoin; tela do rádio ao vivo na aba *Control*; backup; estabilidade.
+**r30:** idiomas inglês (padrão na instalação nova), português e espanhol nas telas e na web (Settings → Language / Config → Idioma); Finance com **euro**. **Ainda não testado no rádio.** Manuais em `docs/pv2ksm/`.
+
+**Novidades:** layouts Cockpit, Analog e Avionics; rastreador de voos com mapa; clima, METAR e radar de chuva; dólar, euro e bitcoin; tela do rádio ao vivo na aba *Control*; backup; estabilidade.
 
 **Como atualizar:** faça backup → abra o IP do rádio → *Update* → *Manual upload* → escolha o `*-ota.bin` da sua variante.

@@ -68,7 +68,7 @@ static const char pageStatus[] PROGMEM = R"HTML(<STYLE>
 <DIV CLASS="HERO" ID="hero" DATA-LAT="{{lat}}" DATA-LON="{{lon}}" DATA-NAME="{{locname}}" DATA-LABEL="{{label}}" DATA-ICAO="{{icao}}">
   <DIV CLASS="pc tuned">
     <DIV CLASS="eq" ID="eq"><I></I><I></I><I></I><I></I><I></I></DIV>
-    <DIV CLASS="eyebrow">Voc&ecirc; est&aacute; sintonizado em</DIV>
+    <DIV CLASS="eyebrow">You are tuned to</DIV>
     <DIV CLASS="tf"><SPAN ID="hf">{{frequency_big}}</SPAN><SMALL ID="hu">{{frequency_unit}}</SMALL></DIV>
     <DIV CLASS="tsub" ID="hs">{{band}}</DIV>
     <DIV CLASS="rds" ID="hrds"></DIV>
@@ -80,7 +80,7 @@ static const char pageStatus[] PROGMEM = R"HTML(<STYLE>
   </DIV>
   <DIV CLASS="pc wx" ID="wx">
     <DIV CLASS="place" ID="wp">{{locname}}</DIV>
-    <DIV CLASS="msg" ID="wm">Carregando clima...</DIV>
+    <DIV CLASS="msg" ID="wm">Loading weather...</DIV>
   </DIV>
 </DIV>
 <SCRIPT>
@@ -141,11 +141,7 @@ static const char pageStatus[] PROGMEM = R"HTML(<STYLE>
     else s += cloud(0, -10, .95, '#9aa3b8', 'drift') + '<polygon class="bolt" points="2,2 -6,14 0,14 -3,24 8,9 2,9" fill="#ffe14d"/>' + drops(3, 14);
     return s + '</svg>';
   }
-  var DESC = { 0: 'Ceu limpo', 1: 'Quase limpo', 2: 'Parcialmente nublado', 3: 'Nublado', 45: 'Neblina', 48: 'Neblina gelada',
-    51: 'Garoa fraca', 53: 'Garoa', 55: 'Garoa forte', 56: 'Garoa gelada', 57: 'Garoa gelada', 61: 'Chuva fraca', 63: 'Chuva', 65: 'Chuva forte',
-    66: 'Chuva gelada', 67: 'Chuva gelada', 71: 'Neve fraca', 73: 'Neve', 75: 'Neve forte', 77: 'Graos de neve', 80: 'Pancadas fracas',
-    81: 'Pancadas de chuva', 82: 'Pancadas fortes', 85: 'Neve fraca', 86: 'Neve forte', 95: 'Trovoadas', 96: 'Trovoada c/ granizo', 99: 'Trovoada c/ granizo' };
-  function desc(c) { return DESC[c] || 'Nublado'; }
+  function desc(c) { return window.WXDESC(c); }
   var hero = $('hero'), LAT = hero.getAttribute('data-lat'), LON = hero.getAttribute('data-lon');
   var NAME = hero.getAttribute('data-name'), LABEL = hero.getAttribute('data-label'), ICAO = hero.getAttribute('data-icao');
   var URLW = 'https://api.open-meteo.com/v1/forecast?latitude=' + encodeURIComponent(LAT) + '&longitude=' + encodeURIComponent(LON) +
@@ -159,14 +155,14 @@ static const char pageStatus[] PROGMEM = R"HTML(<STYLE>
     var place = esc(NAME) + (ICAO ? ' &middot; ' + esc(ICAO) : (LABEL ? ' &middot; ' + esc(LABEL) : ''));
     var h = '<DIV CLASS="place">' + place + '</DIV><DIV CLASS="now">' + icon(k, day) +
       '<DIV><DIV CLASS="temp">' + Math.round(c.temperature_2m) + '&deg;</DIV><DIV CLASS="desc">' + desc(c.weather_code) + '</DIV></DIV></DIV>';
-    h += '<DIV CLASS="meta">Sensa&ccedil;&atilde;o ' + Math.round(c.apparent_temperature) + '&deg; &middot; Max ' + Math.round(d.temperature_2m_max[0]) + '&deg; &middot; Min ' + Math.round(d.temperature_2m_min[0]) + '&deg;</DIV>';
+    h += '<DIV CLASS="meta">' + TR('Feels like') + ' ' + Math.round(c.apparent_temperature) + '&deg; &middot; ' + TR('Max') + ' ' + Math.round(d.temperature_2m_max[0]) + '&deg; &middot; ' + TR('Min') + ' ' + Math.round(d.temperature_2m_min[0]) + '&deg;</DIV>';
     h += '<DIV CLASS="wchips"><SPAN CLASS="wchip">Umidade ' + Math.round(c.relative_humidity_2m) + '%</SPAN>' +
       '<SPAN CLASS="wchip">Vento ' + Math.round(c.wind_speed_10m) + ' km/h</SPAN>' +
       '<SPAN CLASS="wchip">Chuva ' + Math.round(d.precipitation_probability_max[0] || 0) + '%</SPAN>' +
       '<SPAN CLASS="wchip">' + Math.round(c.pressure_msl) + ' hPa</SPAN></DIV><DIV CLASS="days">';
     for (var i = 1; i <= 5 && i < d.time.length; i++) {
       var dt = new Date(d.time[i] + 'T12:00:00');
-      var wd = dt.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+      var wd = dt.toLocaleDateString(window.LOCALE, { weekday: 'short' }).replace('.', '');
       h += '<DIV><B>' + esc(wd) + '</B>' + icon(kindOf(d.weather_code[i]), true) + '<DIV>' + Math.round(d.temperature_2m_max[i]) + '&deg; <SMALL style="color:inherit;opacity:.7">' + Math.round(d.temperature_2m_min[i]) + '&deg;</SMALL></DIV></DIV>';
     }
     box.innerHTML = h + '</DIV>';
@@ -180,7 +176,7 @@ static const char pageStatus[] PROGMEM = R"HTML(<STYLE>
       renderWx(j);
     }).catch(function() {
       if (cached) { renderWx(cached.j); return; }
-      $('wm').textContent = 'Sem clima: este aparelho precisa de acesso à internet.';
+      $('wm').textContent = TR('No weather: this device needs internet access.');
     });
   }
   function fmtF(s) {

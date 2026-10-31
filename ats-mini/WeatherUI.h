@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include "I18n.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -58,47 +59,16 @@ static inline int wxKind(int code)
   return WX_CLOUDY;
 }
 
-static inline const char *wxDesc(int code)
-{
-  switch(code)
-  {
-    case 0:  return "Ceu limpo";
-    case 1:  return "Quase limpo";
-    case 2:  return "Parcialmente nublado";
-    case 3:  return "Nublado";
-    case 45: return "Neblina";
-    case 48: return "Neblina gelada";
-    case 51: return "Garoa fraca";
-    case 53: return "Garoa";
-    case 55: return "Garoa forte";
-    case 56: case 57: return "Garoa gelada";
-    case 61: return "Chuva fraca";
-    case 63: return "Chuva";
-    case 65: return "Chuva forte";
-    case 66: case 67: return "Chuva gelada";
-    case 71: return "Neve fraca";
-    case 73: return "Neve";
-    case 75: return "Neve forte";
-    case 77: return "Graos de neve";
-    case 80: return "Pancadas fracas";
-    case 81: return "Pancadas de chuva";
-    case 82: return "Pancadas fortes";
-    case 85: case 86: return "Pancadas de neve";
-    case 95: return "Trovoadas";
-    case 96: case 99: return "Trovoada e granizo";
-    default: return "Indefinido";
-  }
-}
+static inline const char *wxDesc(int code) { return trWx(code); }
 
 static inline const char *wxDayName(const char *date)
 {
-  static const char *const names[] = {"Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"};
   static const int tt[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
   if(strlen(date) < 10) return "---";
   int y = atoi(date), m = atoi(date + 5), d = atoi(date + 8);
   if(m < 1 || m > 12) return "---";
   if(m < 3) y -= 1;
-  return names[(y + y / 4 - y / 100 + y / 400 + tt[m - 1] + d) % 7];
+  return trDay((y + y / 4 - y / 100 + y / 400 + tt[m - 1] + d) % 7);
 }
 
 struct WxBg
@@ -315,7 +285,7 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
     for(int y = 0 ; y < H ; y++) g.fillRect(0, y, W, 1, bg.at(y));
     wxIcon(g, WX_CLOUDY, false, 160, 66, 1.1f, t, bg);
     wxText(g, place, 160, 8, fS, cW, 4 /*TC*/, cSh);
-    wxText(g, (status && status[0]) ? status : "Buscando clima...", 160, 128, fS, cW, 4, cSh);
+    wxText(g, (status && status[0]) ? status : tr(T_SEARCHING_WX), 160, 128, fS, cW, 4, cSh);
     return;
   }
 
@@ -336,7 +306,7 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
   if(status && status[0]) wxText(g, status, 306 - WX_PAGES * 10, 8, fT, cWarn, 2 /*TR*/, cSh);
   else
   {
-    if(ageMin <= 0) snprintf(buf, sizeof(buf), "agora"); else snprintf(buf, sizeof(buf), "%d min", ageMin);
+    if(ageMin <= 0) snprintf(buf, sizeof(buf), "%s", tr(T_NOW)); else snprintf(buf, sizeof(buf), "%d min", ageMin);
     wxText(g, buf, 306 - WX_PAGES * 10, 8, fT, cDim, 2, cSh);
   }
 
@@ -352,7 +322,7 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
     wxText(g, "C", 118 + tw + 16, 28, fL, cW, 0, cSh);
 
     wxText(g, wxDesc(d.code), 118, 82, fS, cW, 0, cSh);
-    snprintf(buf, sizeof(buf), "Sens %d  Max %d  Min %d", d.feels, d.days[0].tmax, d.days[0].tmin);
+    snprintf(buf, sizeof(buf), tr(T_FEELS), d.feels, d.days[0].tmax, d.days[0].tmin);
     wxText(g, buf, 118, 102, fS, cDim, 0, cSh);
 
     const int cy0 = 124, ch = 40, cw = 70;
@@ -363,10 +333,10 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
       const char *label, *unit;
       switch(i)
       {
-        case 0: label = "UMIDADE"; unit = "%";    snprintf(buf, sizeof(buf), "%d", d.hum); break;
-        case 1: label = "VENTO";   unit = "km/h"; snprintf(buf, sizeof(buf), "%d", d.wind); break;
-        case 2: label = "CHUVA";   unit = "%";    snprintf(buf, sizeof(buf), "%d", d.nDays ? d.days[0].pop : 0); break;
-        default: label = "PRESSAO"; unit = "hPa"; snprintf(buf, sizeof(buf), "%d", d.pressure); break;
+        case 0: label = tr(T_HUMIDITY); unit = "%";    snprintf(buf, sizeof(buf), "%d", d.hum); break;
+        case 1: label = tr(T_WIND);   unit = "km/h"; snprintf(buf, sizeof(buf), "%d", d.wind); break;
+        case 2: label = tr(T_RAIN);   unit = "%";    snprintf(buf, sizeof(buf), "%d", d.nDays ? d.days[0].pop : 0); break;
+        default: label = tr(T_PRESSURE); unit = "hPa"; snprintf(buf, sizeof(buf), "%d", d.pressure); break;
       }
       wxText(g, label, x + 6, cy0 + 5, fT, cDim, 0);
       wxText(g, buf, x + 6, cy0 + 19, fS, cW, 0);
@@ -377,7 +347,7 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
   }
   else if(page == 1)
   {
-    wxText(g, "PROXIMOS DIAS", 8, 22, fT, cDim, 0, cSh);
+    wxText(g, tr(T_NEXT_DAYS), 8, 22, fT, cDim, 0, cSh);
     const int n = d.nDays < 5 ? d.nDays : 5;
     for(int i = 0 ; i < n ; i++)
     {
@@ -385,7 +355,7 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
       int x = 6 + i * 62, w = 58, y = 34, h = 130;
       wxChip(g, x, y, w, h);
       int cxm = x + w / 2;
-      wxText(g, i == 0 ? "Hoje" : wxDayName(dy.date), cxm, y + 6, fS, cW, 1 /*TC*/, cSh);
+      wxText(g, i == 0 ? tr(T_TODAY) : wxDayName(dy.date), cxm, y + 6, fS, cW, 1 /*TC*/, cSh);
       WxBg dbg = wxBackground(wxKind(dy.code), true, H);
       wxIcon(g, wxKind(dy.code), true, (float)cxm, (float)(y + 46), 0.52f, t, dbg);
       snprintf(buf, sizeof(buf), "%d", dy.tmax);
@@ -401,10 +371,10 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
   }
   else
   {
-    wxText(g, "PROXIMAS HORAS", 8, 22, fT, cDim, 0, cSh);
+    wxText(g, tr(T_NEXT_HOURS), 8, 22, fT, cDim, 0, cSh);
     if(d.nDays)
     {
-      snprintf(buf, sizeof(buf), "Nasce %s  Poe %s  UV %d", d.days[0].sunrise, d.days[0].sunset, d.days[0].uv);
+      snprintf(buf, sizeof(buf), tr(T_SUNRISE), d.days[0].sunrise, d.days[0].sunset, d.days[0].uv);
       wxText(g, buf, 8, 34, fS, cW, 0, cSh);
     }
     const int n = d.nHours;
@@ -446,7 +416,7 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
         g.fillRect(px(i) - 6, 164 - 22, 12, 22, wxRgb(24, 40, 70));
         if(bh > 0) g.fillRect(px(i) - 6, 164 - bh, 12, bh, wxRgb(96, 176, 255));
       }
-      wxText(g, "barras: chance de chuva", 312, 22, fT, cDim, 2, cSh);
+      wxText(g, tr(T_BARS_RAIN), 312, 22, fT, cDim, 2, cSh);
     }
   }
 }

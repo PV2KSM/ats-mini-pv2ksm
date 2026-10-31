@@ -1,6 +1,7 @@
 #include "Common.h"
 #include "Storage.h"
 #include "Themes.h"
+#include "I18n.h"
 #include "Utils.h"
 #include "Menu.h"
 #include "Memories.h"
@@ -221,6 +222,7 @@ void prefsSave(uint32_t items)
     prefs.putBool("AudioClamp",   audioClamp);     // Hardware audio clamp present
     prefs.putUChar("DSPPatchset", dspPatchesIdx);  // DSP patches
     prefs.putUChar("UILayout",    uiLayoutIdx);    // UI Layout
+    prefs.putUChar("Lang",        uiLang);         // Language of the extra screens
     prefs.putUChar("BLEMode",     bleModeIdx);     // Bluetooth mode
     prefs.putUChar("USBMode",     usbModeIdx);     // USB mode
     prefs.putUChar("TCPMode",     tcpModeIdx);     // TCP mode
@@ -310,6 +312,8 @@ bool prefsLoad(uint32_t items)
     audioClamp     = prefs.getBool("AudioClamp", true);        // Hardware audio clamp present
     dspPatchesIdx  = prefs.getUChar("DSPPatchset", DSP_PATCHES_DEFAULT); // Uploaded patch set
     uiLayoutIdx    = prefs.getUChar("UILayout", uiLayoutIdx);   // UI Layout
+    uiLang         = prefs.getUChar("Lang", uiLang);            // Language of the extra screens
+    if(uiLang >= LANG_TOTAL) uiLang = LANG_EN;
     bleModeIdx     = prefs.getUChar("BLEMode", bleModeIdx);     // Bluetooth mode
     usbModeIdx     = prefs.getUChar("USBMode", usbModeIdx);     // USB mode
     tcpModeIdx     = prefs.getUChar("TCPMode", TCP_OFF);        // TCP mode

@@ -24,6 +24,7 @@
 #include <esp_heap_caps.h>
 #include <math.h>
 #include <string.h>
+#include "I18n.h"
 
 #if FLIGHTS_DEBUG
 #define FLOG(...) Serial.printf(__VA_ARGS__)
@@ -60,7 +61,7 @@ struct Aircraft
 static Aircraft list[FLIGHTS_MAX];
 static int listCount = 0;
 static int listTotal = 0;   // Aircraft inside the radius (may exceed FLIGHTS_MAX)
-static char status[40] = "Aguardando";
+static char status[40] = "";
 static uint32_t lastOkMs = 0;
 static uint32_t dataVersion = 0;
 static SemaphoreHandle_t mtx = nullptr;
@@ -98,7 +99,7 @@ static void unlock() { if(mtx) xSemaphoreGive(mtx); }
 static void setStatus(const char *s)
 {
   lock();
-  snprintf(status, sizeof(status), "%s", s ? s : "Erro desconhecido");
+  snprintf(status, sizeof(status), "%s", s ? s : tr(T_UNKNOWN_ERR));
   dataVersion++;
   unlock();
 }
@@ -128,11 +129,11 @@ static void fetchFlightsLocked()
   const float lat = loc.lat, lon = loc.lon;
   const int radius = loc.radiusNm;
 
-  if(lat == 0.0f && lon == 0.0f) { setStatus("Defina a posicao"); return; }
-  if(WiFi.status() != WL_CONNECTED) { setStatus("Sem Wi-Fi"); return; }
+  if(lat == 0.0f && lon == 0.0f) { setStatus(tr(T_FL_SET_POS)); return; }
+  if(WiFi.status() != WL_CONNECTED) { setStatus(tr(T_NO_WIFI)); return; }
   // TLS certificate validation needs the date; same rule as the OTA updater
-  if(!clockGetDate(nullptr, nullptr, nullptr, nullptr)) { setStatus("Sem hora (NTP)"); return; }
-  if(!allocBody()) { setStatus("Sem memoria"); return; }
+  if(!clockGetDate(nullptr, nullptr, nullptr, nullptr)) { setStatus(tr(T_NO_TIME)); return; }
+  if(!allocBody()) { setStatus(tr(T_NO_MEM)); return; }
 
   char url[128];
   // The view is a screen-shaped rectangle: radius = nm from the centre to the top/bottom edge, so the
@@ -162,9 +163,9 @@ static void fetchFlightsLocked()
   if(code != HTTP_CODE_OK)
   {
     char msg[40], tlsMsg[80] = "";
-    if(code > 0) snprintf(msg, sizeof(msg), "HTTP erro %d", code);
-    else if(client.lastError(tlsMsg, sizeof(tlsMsg)) != 0) snprintf(msg, sizeof(msg), "TLS erro (%d)", code);
-    else snprintf(msg, sizeof(msg), "Rede erro %d", code);
+    if(code > 0) snprintf(msg, sizeof(msg), tr(T_HTTP_ERR), code);
+    else if(client.lastError(tlsMsg, sizeof(tlsMsg)) != 0) snprintf(msg, sizeof(msg), tr(T_TLS_ERR), code);
+    else snprintf(msg, sizeof(msg), tr(T_NET_ERR), code);
     FLOG("[FLIGHT] %s %s\n", http.errorToString(code).c_str(), tlsMsg);
     http.end();
     setStatus(msg);
@@ -175,8 +176,8 @@ static void fetchFlightsLocked()
   int wrote = http.writeToStream(&sink);
   http.end();
   FLOG("[FLIGHT] body: %u bytes (writeToStream=%d, overflow=%d)\n", (unsigned)sink.len, wrote, sink.overflow);
-  if(sink.overflow) { setStatus("Resposta grande"); return; }
-  if(wrote < 0 || sink.len == 0) { setStatus("Leitura falhou"); return; }
+  if(sink.overflow) { setStatus(tr(T_BIG_RESP)); return; }
+  if(wrote < 0 || sink.len == 0) { setStatus(tr(T_READ_FAIL)); return; }
 
   JsonDocument filter;
   filter["ac"][0]["flight"]   = true;
@@ -195,7 +196,7 @@ static void fetchFlightsLocked()
   if(err)
   {
     FLOG("[FLIGHT] JSON: %s\n", err.c_str());
-    setStatus("Erro JSON");
+    setStatus(tr(T_JSON_ERR));
     return;
   }
 
@@ -254,7 +255,7 @@ static void fetchFlightsLocked()
   listCount = n;
   listTotal = total;
   lastOkMs = millis();
-  snprintf(status, sizeof(status), "%s", n ? "OK" : "Sem aeronaves");
+  snprintf(status, sizeof(status), "%s", n ? "OK" : tr(T_FL_NO_AC));
   dataVersion++;
   unlock();
   FLOG("[FLIGHT] Aeronaves: %d\n", n);
@@ -357,7 +358,7 @@ void flightsOpen()
   resetSelection();
   mapEnsure();
   lock();
-  snprintf(status, sizeof(status), "Buscando...");
+  snprintf(status, sizeof(status), "%s", tr(T_SEARCHING));
   dataVersion++;
   unlock();
   wakeNow = true;
@@ -553,8 +554,8 @@ void flightsDraw(LGFX_Sprite &spr)
   }
 
   // ---- Top bar: count, selection, radius / status ----
-  if(n > 0) snprintf(buf, sizeof(buf), "VOOS %d/%d  %dnm", selIdx + 1, total > n ? total : n, radius);
-  else snprintf(buf, sizeof(buf), "VOOS 0  %dnm", radius);
+  if(n > 0) snprintf(buf, sizeof(buf), tr(T_FL_HDR), selIdx + 1, total > n ? total : n, radius);
+  else snprintf(buf, sizeof(buf), tr(T_FL_HDR0), radius);
   int w = strlen(buf) * 6 + 8;
   chip(spr, 3, 3, w, 12);
   spr.setTextColor(cHdr);
@@ -562,7 +563,7 @@ void flightsDraw(LGFX_Sprite &spr)
 
   const uint32_t age = okMs ? (millis() - okMs) / 1000 : 0;
   snprintf(buf, sizeof(buf), "%s%s%us", st, okMs ? " " : "", okMs ? (unsigned)age : 0u);
-  if(!okMs) snprintf(buf, sizeof(buf), "%s", st);
+  if(!okMs) snprintf(buf, sizeof(buf), "%s", st[0] ? st : tr(T_WAITING));
   w = strlen(buf) * 6 + 8;
   chip(spr, MAP_W - 3 - w, 3, w, 12);
   spr.setTextColor(cDim);
@@ -591,7 +592,7 @@ void flightsDraw(LGFX_Sprite &spr)
     chip(spr, cx - 48, cy + 24, 96, 14);
     spr.setTextDatum(MC_DATUM);
     spr.setTextColor(cDim);
-    spr.drawString("Nenhum aviao", cx, cy + 31, FONT_DEFAULT);
+    spr.drawString(tr(T_FL_NONE), cx, cy + 31, FONT_DEFAULT);
     spr.setTextDatum(TL_DATUM);
     return;
   }
@@ -644,8 +645,8 @@ void flightsDraw(LGFX_Sprite &spr)
   char vsS[16];
   if(s.hasVs) snprintf(vsS, sizeof(vsS), "%+d fpm", s.vs); else snprintf(vsS, sizeof(vsS), "-");
   char rows[5][24];
-  static const char *const names[5] = {"ALT", "VEL", "RUMO", "V/S", "DIST"};
-  if(s.altFt < 0) snprintf(rows[0], sizeof(rows[0]), "no solo");
+  const char *const names[5] = {tr(T_FL_ALT), tr(T_FL_SPD), tr(T_FL_HDG), tr(T_FL_VS), tr(T_FL_DIST)};
+  if(s.altFt < 0) snprintf(rows[0], sizeof(rows[0]), "%s", tr(T_FL_ON_GROUND));
   else if(s.altFt >= 18000) snprintf(rows[0], sizeof(rows[0]), "%s", altS);
   else snprintf(rows[0], sizeof(rows[0]), "%d ft", s.altFt);
   snprintf(rows[1], sizeof(rows[1]), "%d kt", s.speedKt);
@@ -661,6 +662,6 @@ void flightsDraw(LGFX_Sprite &spr)
     spr.drawString(rows[k], x0 + 56, yy, FONT_SMALL);
   }
   spr.setTextColor(cDim);
-  snprintf(buf, sizeof(buf), "ICAO %s  clique: fechar", s.id);
+  snprintf(buf, sizeof(buf), tr(T_FL_CLOSE), s.id);
   spr.drawString(buf, x0 + 10, y0 + ch - 13, FONT_DEFAULT);
 }
