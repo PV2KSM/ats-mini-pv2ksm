@@ -5,14 +5,14 @@
 ## ⚠️ Tested hardware — read first
 | Variant | Status |
 |---|---|
-| **ATS-Mini, OSPI** (ESP32-S3, 8 MB octal PSRAM, Si4732) | ✅ **Tested** by PV2KSM on a real radio (firmware build "Oct 28 2026", Wi-Fi + web UI + radio screens below) |
+| **ATS-Mini, OSPI** (ESP32-S3, 8 MB octal PSRAM, Si4732) | ✅ **Tested** by PV2KSM on a real radio (r28 firmware build "Oct 28 2026", Wi-Fi + web UI + radio screens below) |
 | ATS-Mini, QSPI | ⚠️ Compiled only — **not tested on hardware** |
 | LilyGO T-Embed (Si473x) | ⚠️ Compiled only — **not tested on hardware** |
 
 Flash **only the file for your own variant** (the web updater refuses the wrong one). Please report results for QSPI / LilyGO in *Issues*.
 
 What was checked on the OSPI radio: web UI pages (Control, Memory, Finance, Backup, Config, Update, Patches), the **Analog** layout (live mirror on the Control tab), and the Weather (now / days / hours / METAR / rain radar), Flights (list + detail) and Finance screens.
-**r30 additions (languages, euro, translated web pages) have NOT been tested on the radio yet.** Not yet confirmed on real hardware: the **Cockpit** and **Avionics** layouts (only checked as PC renders), full-flash "merged" images, backup *import*.
+**r30 (languages, euro, translated web pages) was tested by PV2KSM on the OSPI radio: OK.** Not yet confirmed on real hardware: the **Cockpit** and **Avionics** layouts (only checked as PC renders), full-flash "merged" images, backup *import*.
 Known: with a weak battery the radio can reboot while Wi-Fi is on (charge it or turn Wi-Fi off). A user reported ~170 mA draw with Wi-Fi enabled; the reboot depends on the hardware, worse with a weak 3V3 regulator.
 Known: the flights service occasionally reported `TLS erro (-1)` on the Services screen (retries work).
 
@@ -80,7 +80,7 @@ Credits: ESP32-SI4732 / ATS-Mini (MIT) · B612 font (SIL OFL 1.1) · LovyanGFX �
 
 **Testado no rádio OSPI:** páginas da web, layout Analog, telas de Clima (agora/dias/horas/METAR/radar), Voos e Finanças. **Ainda não confirmados em hardware:** layouts Cockpit e Avionics, imagem `merged`, importação de backup.
 
-**r30:** idiomas inglês (padrão na instalação nova), português e espanhol nas telas e na web (Settings → Language / Config → Idioma); Finance com **euro**. **Ainda não testado no rádio.** Manuais em `docs/pv2ksm/`.
+**r30:** idiomas inglês (padrão na instalação nova), português e espanhol nas telas e na web (Settings → Language / Config → Idioma); Finance com **euro**. **Testado no rádio OSPI: OK.** Manuais em `docs/pv2ksm/`.
 
 **Novidades:** layouts Cockpit, Analog e Avionics; rastreador de voos com mapa; clima, METAR e radar de chuva; dólar, euro e bitcoin; tela do rádio ao vivo na aba *Control*; backup; estabilidade.
 
