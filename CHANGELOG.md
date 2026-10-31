@@ -4,6 +4,20 @@ The user manual is available at <https://esp32-si4732.github.io/ats-mini/manual.
 
 <!-- towncrier release notes start -->
 
+## PV2KSM r30A (2026-10-31) - graphics update
+
+### Added
+
+- New look, opt-in: Menu > Visual > Menu style (Original / Carousel / Grid). Carousel and Grid turn on icon menus, restyled editors, a centred status box and restyled Finance, Network and Weather screens. Original is the default and keeps the r30 look.
+- New Visual menu with UI Layout, Theme, Accent, Text color, Background, Menu color and Menu style (moved from Settings). UI Layout and Theme preview the main screen behind the selector.
+- Nine new main screens: Neo Analog, Neo S-Meter, Vintage, Clock, Memories, Minimal, VFD, LCD, Neon.
+- Carousel and Grid menu names follow the language setting (PT/EN/ES). Web Config has selectors for the new options (translated).
+
+### Notes
+
+- CPU stays at 80 MHz; icons are cached and lightly anti-aliased to keep the new graphics smooth.
+- Hardware status is in docs/pv2ksm/RELEASE-r30A.md.
+
 ## 2.45 (2026-10-22)
 
 

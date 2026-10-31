@@ -15,6 +15,33 @@
 #include "Patches.h"
 #include "Storage.h"
 #include "I18n.h"
+#include "NewUI.h"
+
+// Menus and editors use the Theme colours (Visual: Original) or the menu palette chosen in Settings (Visual: New)
+struct MenuColors { uint16_t bg, border, hdr, item, hl_bg, hl_text, param, glow, acc; };
+static MenuColors mcGet()
+{
+  MenuColors m;
+  if(!uiModern)
+  {
+    // Original look: the colours of the selected Theme
+    m.bg = TH.menu_bg; m.border = TH.menu_border; m.hdr = TH.menu_hdr; m.item = TH.menu_item;
+    m.hl_bg = TH.menu_hl_bg; m.hl_text = TH.menu_hl_text; m.param = TH.menu_param; m.glow = TH.menu_bg; m.acc = TH.menu_border;
+    return m;
+  }
+  const NuPal p = nu::menuPal(uiMenuColor, uiAccent, uiTextWhite, uiBgIdx);
+  m.bg = ckMix(p.bg1, 0xFFFF, 16);
+  m.border = p.acc;
+  m.hdr = p.acc;
+  m.item = p.txt2;
+  m.hl_bg = ckMix(p.bg1, p.acc, 90);
+  m.hl_text = p.txt;
+  m.param = p.txt;
+  m.glow = p.bg1;
+  m.acc = p.acc;
+  return m;
+}
+#define MC (mcGet())
 
 #include <time.h>
 
@@ -102,7 +129,8 @@ Band *getCurrentBand() { return(&bands[bandIdx]); }
 #define MENU_WEATHER     14
 #define MENU_FINANCE     15
 #define MENU_NETWORK     16
-#define MENU_SETTINGS    17
+#define MENU_VISUAL      17
+#define MENU_SETTINGS    18
 
 int8_t menuIdx = MENU_VOLUME;
 
@@ -125,6 +153,7 @@ static const char *menu[] =
   "Weather",
   "Finance",
   "Network",
+  "Visual",
   "Settings",
 };
 
@@ -138,23 +167,32 @@ static const char *menu[] =
 #define MENU_SLEEP        3
 #define MENU_SLEEPMODE    4
 #define MENU_OFFTIMER     5
-#define MENU_THEME        6
-#define MENU_UI           7
-#define MENU_ZOOM         8
-#define MENU_SCROLL       9
-#define MENU_RDS          10
-#define MENU_FM_STEREO    11
-#define MENU_FM_REGION    12
-#define MENU_CALIBRATION  13
-#define MENU_DSP_PATCHES  14
-#define MENU_LOADEIBI     15
-#define MENU_UPDATEFW     16
-#define MENU_USBMODE      17
-#define MENU_TCPMODE      18
-#define MENU_BLEMODE      19
-#define MENU_WIFIMODE     20
-#define MENU_LANG         21
-#define MENU_ABOUT        22
+#define MENU_ZOOM         6
+#define MENU_SCROLL       7
+#define MENU_RDS          8
+#define MENU_FM_STEREO    9
+#define MENU_FM_REGION    10
+#define MENU_CALIBRATION  11
+#define MENU_DSP_PATCHES  12
+#define MENU_LOADEIBI     13
+#define MENU_UPDATEFW     14
+#define MENU_USBMODE      15
+#define MENU_TCPMODE      16
+#define MENU_BLEMODE      17
+#define MENU_WIFIMODE     18
+#define MENU_LANG         19
+#define MENU_ABOUT        20
+
+// Visual menu: layout, theme and colours
+#define VIS_UI            0
+#define VIS_THEME         1
+#define VIS_ACCENT        2
+#define VIS_TEXTCOL       3
+#define VIS_BGCOL         4
+#define VIS_MENUCOL       5
+#define VIS_MENUSTYLE     6
+static const char *visualItems[] = { "UI Layout", "Theme", "Accent", "Text color", "Background", "Menu color", "Menu style" };
+int8_t visualIdx = VIS_UI;
 
 
 static uint8_t updateFwIdx = 0;
@@ -170,8 +208,6 @@ static const char *settings[] =
   "Sleep Timer",
   "Sleep Mode",
   "Off Timer",
-  "Theme",
-  "UI Layout",
   "Zoom Menu",
   "Scroll Dir.",
   "RDS",
@@ -340,8 +376,10 @@ static uint8_t dateTimeSecond;
 // UI Layout Menu
 //
 uint8_t uiLayoutIdx = 0;
+uint8_t uiAccent = 0, uiTextWhite = 1, uiBgIdx = 0, uiMenuColor = 0, uiMenuStyle = 0;
+static uint8_t nuOpt = 0;   // Which colour/style option the CMD_NUOPT screen edits
 const char *const uiLayoutDesc[] =
-{ "Default", "S-Meter", "Cockpit", "Analog", "Avionics" };
+{ "Default", "S-Meter", "Cockpit", "Analog", "Avionics", "Neo Analog", "Neo S-Meter", "Vintage", "Clock", "Memories", "Minimal", "VFD", "LCD", "Neon" };
 
 int getTotalUILayouts() { return(ITEM_COUNT(uiLayoutDesc)); }
 
@@ -744,6 +782,33 @@ static void doTheme(int16_t enc)
 static void doUILayout(int16_t enc)
 {
   uiLayoutIdx = uiLayoutIdx > LAST_ITEM(uiLayoutDesc) ? UI_DEFAULT : wrap_range(uiLayoutIdx, enc, 0, LAST_ITEM(uiLayoutDesc));
+  prefsRequestSave(SAVE_SETTINGS);
+}
+
+// Colour / style options (Settings: Accent, Text color, Background, Menu color, Menu style)
+#define nuTextNames nuTextName
+static const char *const nuMenuColNames[8] = {"Same", "Amber", "Green", "Cyan", "Blue", "Magenta", "Red", "White"};
+static const char *const nuMenuStyleNames[3] = {"Original", "Carousel", "Grid"};
+
+static uint8_t *nuOptValue(int *count, const char *const **names, const char **title)
+{
+  switch(nuOpt)
+  {
+    case 0: *count = NU_ACCENTS; *names = nuAccentName; *title = "Accent"; return &uiAccent;
+    case 1: *count = NU_TEXTS; *names = nuTextNames; *title = "Text color"; return &uiTextWhite;
+    case 2: *count = NU_BGS; *names = nuBgName; *title = "Background"; return &uiBgIdx;
+    case 3: *count = 8; *names = nuMenuColNames; *title = "Menu color"; return &uiMenuColor;
+    default: *count = 3; *names = nuMenuStyleNames; *title = "Menu style"; return &uiMenuStyle;
+  }
+}
+
+static void doNuOpt(int16_t enc)
+{
+  int count; const char *const *names; const char *title;
+  uint8_t *v = nuOptValue(&count, &names, &title);
+  if(*v >= count) *v = 0;
+  // Text color is listed Accent, White but stored as uiTextWhite (1 = white), so the list index is the stored value
+  *v = wrap_range(*v, enc, 0, count - 1);
   prefsRequestSave(SAVE_SETTINGS);
 }
 
@@ -1205,6 +1270,7 @@ static void clickMenu(int cmd, bool shortPress)
     case MENU_AGC_ATT:  currentCmd = CMD_AGC;       break;
     case MENU_BAND:     currentCmd = CMD_BAND;      break;
     case MENU_SETTINGS: currentCmd = CMD_SETTINGS;  break;
+    case MENU_VISUAL:   currentCmd = CMD_VISUAL;    break;
     case MENU_FLIGHTS:  flightsOpen(); currentCmd = CMD_FLIGHTS; break;
     case MENU_WEATHER:  weatherOpen(); currentCmd = CMD_WEATHER; break;
     case MENU_FINANCE:  financeOpen(); currentCmd = CMD_FINANCE; break;
@@ -1240,6 +1306,26 @@ static void clickMenu(int cmd, bool shortPress)
   }
 }
 
+static void doVisual(int16_t enc)
+{
+  visualIdx = wrap_range(visualIdx, enc, 0, LAST_ITEM(visualItems));
+}
+
+static void clickVisual(int item, bool shortPress)
+{
+  currentCmd = CMD_NONE;
+  switch(item)
+  {
+    case VIS_UI:        currentCmd = CMD_UI;    break;
+    case VIS_THEME:     currentCmd = CMD_THEME; break;
+    case VIS_ACCENT:    nuOpt = 0; currentCmd = CMD_NUOPT; break;
+    case VIS_TEXTCOL:   nuOpt = 1; currentCmd = CMD_NUOPT; break;
+    case VIS_BGCOL:     nuOpt = 2; currentCmd = CMD_NUOPT; break;
+    case VIS_MENUCOL:   nuOpt = 3; currentCmd = CMD_NUOPT; break;
+    case VIS_MENUSTYLE: nuOpt = 4; currentCmd = CMD_NUOPT; break;
+  }
+}
+
 static void doSettings(int16_t enc)
 {
   settingsIdx = wrap_range(settingsIdx, enc, 0, LAST_ITEM(settings));
@@ -1256,8 +1342,6 @@ static void clickSettings(int cmd, bool shortPress)
     case MENU_CALIBRATION:
       if(isSSB()) currentCmd = CMD_CAL;
       break;
-    case MENU_THEME:      currentCmd = CMD_THEME;      break;
-    case MENU_UI:         currentCmd = CMD_UI;         break;
     case MENU_RDS:        currentCmd = CMD_RDS;        break;
     case MENU_DATETIME:
       dateTimeInit();
@@ -1316,11 +1400,13 @@ bool doSideBar(uint16_t cmd, int16_t enc, int16_t enca)
     case CMD_FM_STEREO:  doFmStereo(scrollDirection * enc);break;
     case CMD_DSP_PATCHES: doDspPatches(scrollDirection * enc);break;
     case CMD_SETTINGS:   doSettings(scrollDirection * enc);break;
+    case CMD_VISUAL:     doVisual(scrollDirection * enc);break;
     case CMD_BRT:        doBrt(enca);break;
     case CMD_CAL:        doCal(enca);break;
     case CMD_THEME:      doTheme(scrollDirection * enc);break;
     case CMD_UI:         doUILayout(scrollDirection * enc);break;
     case CMD_LANG:       doLanguage(scrollDirection * enc);break;
+    case CMD_NUOPT:      doNuOpt(scrollDirection * enc);break;
     case CMD_RDS:        doRDSMode(scrollDirection * enc);break;
     case CMD_MEMORY:     doMemory(scrollDirection * enca);break;
     case CMD_OFFTIMER:   doOffTimer(enca);break;
@@ -1354,6 +1440,7 @@ bool clickHandler(uint16_t cmd, bool shortPress)
   {
     case CMD_MENU:     clickMenu(menuIdx, shortPress);break;
     case CMD_SETTINGS: clickSettings(settingsIdx, shortPress);break;
+    case CMD_VISUAL:   clickVisual(visualIdx, shortPress);break;
     case CMD_UPDATEFW: otaRequestLatest(updateFwIdx == 1);break;
     case CMD_MEMORY:   clickMemory(memoryIdx, shortPress);break;
     case CMD_BLEMODE:  clickBleMode(bleModeMenuIdx, shortPress);break;
@@ -1424,77 +1511,94 @@ void selectBand(uint8_t idx, bool drawLoadingPatch)
 
 static void drawCommon(const char *title, int x, int y, int sx, bool cursor = false)
 {
+  const MenuColors m = MC;
   spr.setTextDatum(MC_DATUM);
 
-  spr.setTextColor(TH.menu_hdr);
-  spr.fillRoundRect(1+x, 1+y, 76+sx, 110, 4, TH.menu_bg);
-  spr.drawRoundRect(1+x, 1+y, 76+sx, 110, 4, TH.menu_border);
+  spr.setTextColor(m.hdr);
+  if(uiModern)
+  {
+    spr.fillRoundRect(1+x, 1+y, 76+sx, 110, 8, m.bg);
+    nu::glowRound(spr, 1+x, 1+y, 76+sx, 110, 8, m.acc, m.glow);
+    spr.drawRoundRect(1+x, 1+y, 76+sx, 110, 8, m.border);
+  }
+  else
+  {
+    spr.fillRoundRect(1+x, 1+y, 76+sx, 110, 4, m.bg);
+    spr.drawRoundRect(1+x, 1+y, 76+sx, 110, 4, m.border);
+  }
 
-  spr.drawString(title, 40+x+(sx/2), 12+y, FONT_SMALL);
-  spr.drawLine(1+x, 23+y, 76+sx, 23+y, TH.menu_border);
+  if(uiModern)
+  {
+    const char *tt = nu::menuLabel(title, uiLang, false);
+    if(spr.textWidth(tt, FONT_SMALL) > 70 + sx) tt = nu::menuLabel(title, uiLang, true);
+    spr.drawString(tt, 40+x+(sx/2), 12+y, FONT_SMALL);
+  }
+  else spr.drawString(title, 40+x+(sx/2), 12+y, FONT_SMALL);
+  if(uiModern) spr.drawLine(8+x, 23+y, 69+x+sx, 23+y, ckMix(m.bg, m.acc, 110));
+  else spr.drawLine(1+x, 23+y, 76+sx, 23+y, m.border);
 
   spr.setFont(FONT_DEFAULT);
-  spr.setTextColor(TH.menu_item);
+  spr.setTextColor(m.item);
   if(cursor)
-    spr.fillRoundRect(6+x, 24+y+(2*16), 66+sx, 16, 2, TH.menu_hl_bg);
+  {
+    if(uiModern)
+    {
+      spr.fillRoundRect(6+x, 24+y+(2*16), 66+sx, 16, 6, m.hl_bg);
+      spr.drawRoundRect(6+x, 24+y+(2*16), 66+sx, 16, 6, m.acc);
+    }
+    else spr.fillRoundRect(6+x, 24+y+(2*16), 66+sx, 16, 2, m.hl_bg);
+  }
+}
+
+// v0: full screen icon menus (carousel or grid), colours from the Settings options
+static void drawIconMenu(const char *title, const char *const *items, int count, int idx)
+{
+  const NuPal p = nu::menuPal(uiMenuColor, uiAccent, uiTextWhite, uiBgIdx);
+  if(uiMenuStyle == 2) nu::menuGrid(spr, p, title, items, count, idx, uiLang);
+  else nu::menuCarousel(spr, p, title, items, count, idx, uiLang);
+}
+
+// Original side menu (5 rows) used when Visual = Original
+static void drawListMenu(const char *title, const char *const *items, int count, int idx, int x, int y, int sx)
+{
+  spr.setTextDatum(MC_DATUM);
+  spr.fillRoundRect(1+x, 1+y, 76+sx, 110, 4, TH.menu_bg);
+  spr.drawRoundRect(1+x, 1+y, 76+sx, 110, 4, TH.menu_border);
+  spr.setTextColor(TH.menu_hdr);
+  spr.drawString(title, 40+x+(sx/2), 12+y, FONT_SMALL);
+  spr.drawLine(1+x, 23+y, 76+sx, 23+y, TH.menu_border);
+  spr.setFont(FONT_DEFAULT);
+  spr.setTextColor(TH.menu_item);
+  spr.fillRoundRect(6+x, 24+y+(2*16), 66+sx, 16, 2, TH.menu_hl_bg);
+  for(int i=-2 ; i<3 ; i++)
+  {
+    if(i==0) {
+      drawZoomedMenu(items[abs((idx+count+i)%count)]);
+      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+    } else {
+      spr.setTextColor(TH.menu_item);
+    }
+    spr.setTextDatum(MC_DATUM);
+    spr.drawString(items[abs((idx+count+i)%count)], 40+x+(sx/2), 64+y+(i*16), FONT_SMALL);
+  }
 }
 
 static void drawMenu(int x, int y, int sx)
 {
-  spr.setTextDatum(MC_DATUM);
+  if(uiModern) drawIconMenu("Menu", menu, ITEM_COUNT(menu), menuIdx);
+  else drawListMenu("Menu", menu, ITEM_COUNT(menu), menuIdx, x, y, sx);
+}
 
-  spr.fillRoundRect(1+x, 1+y, 76+sx, 110, 4, TH.menu_bg);
-  spr.drawRoundRect(1+x, 1+y, 76+sx, 110, 4, TH.menu_border);
-  spr.setTextColor(TH.menu_hdr);
-
-  spr.drawString("Menu", 40+x+(sx/2), 12+y, FONT_SMALL);
-  spr.drawLine(1+x, 23+y, 76+sx, 23+y, TH.menu_border);
-
-  spr.setFont(FONT_DEFAULT);
-  spr.setTextColor(TH.menu_item);
-  spr.fillRoundRect(6+x, 24+y+(2*16), 66+sx, 16, 2, TH.menu_hl_bg);
-
-  int count = ITEM_COUNT(menu);
-  for(int i=-2 ; i<3 ; i++)
-  {
-    if(i==0) {
-      drawZoomedMenu(menu[abs((menuIdx+count+i)%count)]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
-    } else {
-      spr.setTextColor(TH.menu_item);
-    }
-    spr.setTextDatum(MC_DATUM);
-    spr.drawString(menu[abs((menuIdx+count+i)%count)], 40+x+(sx/2), 64+y+(i*16), FONT_SMALL);
-  }
+static void drawVisual(int x, int y, int sx)
+{
+  if(uiModern) drawIconMenu("Visual", visualItems, ITEM_COUNT(visualItems), visualIdx);
+  else drawListMenu("Visual", visualItems, ITEM_COUNT(visualItems), visualIdx, x, y, sx);
 }
 
 static void drawSettings(int x, int y, int sx)
 {
-  spr.setTextDatum(MC_DATUM);
-
-  spr.fillRoundRect(1+x, 1+y, 76+sx, 110, 4, TH.menu_bg);
-  spr.drawRoundRect(1+x, 1+y, 76+sx, 110, 4, TH.menu_border);
-  spr.setTextColor(TH.menu_hdr);
-  spr.drawString("Settings", 40+x+(sx/2), 12+y, FONT_SMALL);
-  spr.drawLine(1+x, 23+y, 76+sx, 23+y, TH.menu_border);
-
-  spr.setFont(FONT_DEFAULT);
-  spr.setTextColor(TH.menu_item);
-  spr.fillRoundRect(6+x, 24+y+(2*16), 66+sx, 16, 2, TH.menu_hl_bg);
-
-  int count = ITEM_COUNT(settings);
-  for(int i=-2 ; i<3 ; i++)
-  {
-    if(i==0) {
-      drawZoomedMenu(settings[abs((settingsIdx+count+i)%count)]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
-    } else {
-      spr.setTextColor(TH.menu_item);
-    }
-
-    spr.setTextDatum(MC_DATUM);
-    spr.drawString(settings[abs((settingsIdx+count+i)%count)], 40+x+(sx/2), 64+y+(i*16), FONT_SMALL);
-  }
+  if(uiModern) drawIconMenu("Settings", settings, ITEM_COUNT(settings), settingsIdx);
+  else drawListMenu("Settings", settings, ITEM_COUNT(settings), settingsIdx, x, y, sx);
 }
 
 static void drawMode(int x, int y, int sx)
@@ -1506,9 +1610,9 @@ static void drawMode(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(bandModeDesc[abs((currentMode+count+i)%count)]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     spr.setTextDatum(MC_DATUM);
@@ -1528,9 +1632,9 @@ static void drawStep(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(steps[currentMode][abs((idx+i)%count)].desc);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     spr.setTextDatum(MC_DATUM);
@@ -1541,16 +1645,16 @@ static void drawStep(int x, int y, int sx)
 static void drawSeek(int x, int y, int sx)
 {
   drawCommon(menu[MENU_SEEK], x, y, sx);
-  spr.fillArc(40+x+(sx/2), 66+y, 30, 27, 135, 270, TH.menu_param);
-  spr.fillTriangle(40+x+(sx/2)-5, 66+y-32, 40+x+(sx/2)+5, 66+y-27, 40+x+(sx/2)-5, 66+y-22, TH.menu_param);
-  spr.fillArc(40+x+(sx/2), 66+y, 30, 27, 315, 450, TH.menu_param);
-  spr.fillTriangle(40+x+(sx/2)+5, 66+y+32, 40+x+(sx/2)-5, 66+y+27, 40+x+(sx/2)+5, 66+y+22, TH.menu_param);
+  spr.fillArc(40+x+(sx/2), 66+y, 30, 27, 135, 270, MC.param);
+  spr.fillTriangle(40+x+(sx/2)-5, 66+y-32, 40+x+(sx/2)+5, 66+y-27, 40+x+(sx/2)-5, 66+y-22, MC.param);
+  spr.fillArc(40+x+(sx/2), 66+y, 30, 27, 315, 450, MC.param);
+  spr.fillTriangle(40+x+(sx/2)+5, 66+y+32, 40+x+(sx/2)-5, 66+y+27, 40+x+(sx/2)+5, 66+y+22, MC.param);
 
   if(seekMode()==SEEK_SCHEDULE)
   {
-    spr.drawCircle(40+x+(sx/2), 66+y, 10, TH.menu_param);
-    spr.drawLine(40+x+(sx/2), 66+y, 40+x+(sx/2), 66+y-7, TH.menu_param);
-    spr.drawLine(40+x+(sx/2), 66+y, 40+x+(sx/2)+4, 66+y+4, TH.menu_param);
+    spr.drawCircle(40+x+(sx/2), 66+y, 10, MC.param);
+    spr.drawLine(40+x+(sx/2), 66+y, 40+x+(sx/2), 66+y-7, MC.param);
+    spr.drawLine(40+x+(sx/2), 66+y, 40+x+(sx/2)+4, 66+y+4, MC.param);
   }
 }
 
@@ -1563,15 +1667,15 @@ static void drawScan(int x, int y, int sx)
   spr.setTextColor(TH.scan_snr);
   spr.drawString("N", 40+x+(sx/2)+30, 66+y+30, FONT_SMALL);
 
-  spr.fillArc(40+x+(sx/2), 66+y, 30, 27, 135, 270, TH.menu_param);
-  spr.fillTriangle(40+x+(sx/2)-5, 66+y-32, 40+x+(sx/2)+5, 66+y-27, 40+x+(sx/2)-5, 66+y-22, TH.menu_param);
-  spr.fillArc(40+x+(sx/2), 66+y, 30, 27, 315, 450, TH.menu_param);
-  spr.fillTriangle(40+x+(sx/2)+5, 66+y+32, 40+x+(sx/2)-5, 66+y+27, 40+x+(sx/2)+5, 66+y+22, TH.menu_param);
+  spr.fillArc(40+x+(sx/2), 66+y, 30, 27, 135, 270, MC.param);
+  spr.fillTriangle(40+x+(sx/2)-5, 66+y-32, 40+x+(sx/2)+5, 66+y-27, 40+x+(sx/2)-5, 66+y-22, MC.param);
+  spr.fillArc(40+x+(sx/2), 66+y, 30, 27, 315, 450, MC.param);
+  spr.fillTriangle(40+x+(sx/2)+5, 66+y+32, 40+x+(sx/2)-5, 66+y+27, 40+x+(sx/2)+5, 66+y+22, MC.param);
 
-  spr.drawLine(40+x+(sx/2)-17, 66+y+5, 40+x+(sx/2)-4, 66+y+5, TH.menu_param);
-  spr.drawLine(40+x+(sx/2)-4, 66+y+5, 40+x+(sx/2), 66+y-16+5, TH.menu_param);
-  spr.drawLine(40+x+(sx/2), 66+y-16+5, 40+x+(sx/2)+4, 66+y+5, TH.menu_param);
-  spr.drawLine(40+x+(sx/2)+4, 66+y+5, 40+x+(sx/2)+17, 66+y+5, TH.menu_param);
+  spr.drawLine(40+x+(sx/2)-17, 66+y+5, 40+x+(sx/2)-4, 66+y+5, MC.param);
+  spr.drawLine(40+x+(sx/2)-4, 66+y+5, 40+x+(sx/2), 66+y-16+5, MC.param);
+  spr.drawLine(40+x+(sx/2), 66+y-16+5, 40+x+(sx/2)+4, 66+y+5, MC.param);
+  spr.drawLine(40+x+(sx/2)+4, 66+y+5, 40+x+(sx/2)+17, 66+y+5, MC.param);
 }
 
 static void drawBand(int x, int y, int sx)
@@ -1583,9 +1687,9 @@ static void drawBand(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(bands[abs((bandIdx+count+i)%count)].bandName);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     spr.setTextDatum(MC_DATUM);
@@ -1604,9 +1708,9 @@ static void drawBandwidth(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(bandwidths[currentMode][abs((idx+i)%count)].desc);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     spr.setTextDatum(MC_DATUM);
@@ -1623,9 +1727,9 @@ static void drawSleepMode(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(sleepModeDesc[abs((sleepModeIdx+count+i)%count)]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     spr.setTextDatum(MC_DATUM);
@@ -1642,9 +1746,9 @@ static void drawUSBMode(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(usbModeDesc[abs((usbModeIdx+count+i)%count)]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     // Prevent repeats for short menus
@@ -1667,10 +1771,10 @@ static void drawTCPMode(int x, int y, int sx)
     if(i == tcpModeIdx)
     {
       drawZoomedMenu(tcpModeDesc[i]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     }
     else
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
 
     spr.setTextDatum(MC_DATUM);
     spr.drawString(tcpModeDesc[i], 40+x+(sx/2), 64+y+((i-tcpModeIdx)*16), FONT_SMALL);
@@ -1686,9 +1790,9 @@ static void drawBleMode(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(bleModeDesc[abs((bleModeMenuIdx+count+i)%count)]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     // Prevent repeats for short menus
@@ -1710,10 +1814,10 @@ static void drawUpdateFW(int x, int y, int sx)
     if(i == updateFwIdx)
     {
       drawZoomedMenu(updateFwActions[i]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     }
     else
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
 
     spr.setTextDatum(MC_DATUM);
     spr.drawString(updateFwActions[i], 40+x+(sx/2), 64+y+((i-updateFwIdx)*16), FONT_SMALL);
@@ -1729,9 +1833,9 @@ static void drawWiFiMode(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(wifiModeDesc[abs((wifiModeIdx+count+i)%count)]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     spr.setTextDatum(MC_DATUM);
@@ -1741,16 +1845,16 @@ static void drawWiFiMode(int x, int y, int sx)
 
 static void drawTheme(int x, int y, int sx)
 {
-  drawCommon(settings[MENU_THEME], x, y, sx, true);
+  drawCommon("Theme", x, y, sx, true);
 
   int count = getTotalThemes();
   for(int i=-2 ; i<3 ; i++)
   {
     if(i==0) {
       drawZoomedMenu(theme[abs((themeIdx+count+i)%count)].name);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     spr.setTextDatum(MC_DATUM);
@@ -1760,16 +1864,16 @@ static void drawTheme(int x, int y, int sx)
 
 static void drawUILayout(int x, int y, int sx)
 {
-  drawCommon(settings[MENU_UI], x, y, sx, true);
+  drawCommon("UI Layout", x, y, sx, true);
 
   int count = ITEM_COUNT(uiLayoutDesc);
   for(int i=-2 ; i<3 ; i++)
   {
     if(i==0) {
       drawZoomedMenu(uiLayoutDesc[abs((uiLayoutIdx+count+i)%count)]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     // Prevent repeats for short menus
@@ -1782,6 +1886,25 @@ static void drawUILayout(int x, int y, int sx)
   }
 }
 
+static void drawNuOpt(int x, int y, int sx)
+{
+  int count; const char *const *names; const char *title;
+  uint8_t *v = nuOptValue(&count, &names, &title);
+  drawCommon(title, x, y, sx, true);
+  for(int i=-2 ; i<3 ; i++)
+  {
+    if(i==0) {
+      drawZoomedMenu(names[(*v+count+i)%count]);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
+    } else {
+      spr.setTextColor(MC.item);
+    }
+    if (count < 5 && ((*v+i) < 0 || (*v+i) >= count)) continue;
+    spr.setTextDatum(MC_DATUM);
+    spr.drawString(names[(*v+count+i)%count], 40+x+(sx/2), 64+y+(i*16), FONT_SMALL);
+  }
+}
+
 static void drawLanguage(int x, int y, int sx)
 {
   drawCommon(settings[MENU_LANG], x, y, sx, true);
@@ -1791,9 +1914,9 @@ static void drawLanguage(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(uiLangDesc[abs((uiLang+count+i)%count)]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     // Prevent repeats for short menus
@@ -1815,9 +1938,9 @@ static void drawRDSMode(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(rdsMode[abs((rdsModeIdx+count+i)%count)].desc);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     spr.setTextDatum(MC_DATUM);
@@ -1837,11 +1960,11 @@ static void drawUTCOffset(int x, int y, int sx)
     if(i==0)
     {
       drawZoomedMenu(utcOffsets[abs((idx+count+i)%count)].desc);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     }
     else
     {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     spr.setTextDatum(MC_DATUM);
@@ -1860,9 +1983,9 @@ static void drawDateTimeHighlight(const char *text, uint8_t start, uint8_t lengt
   int valueX = left + spr.textWidth(prefix, FONT_SMALL);
   int valueWidth = spr.textWidth(value, FONT_SMALL);
 
-  spr.fillRoundRect(valueX - 1, y - 8, valueWidth + 2, 16, 2, TH.menu_hl_bg);
+  spr.fillRoundRect(valueX - 1, y - 8, valueWidth + 2, 16, 2, MC.hl_bg);
   spr.setTextDatum(ML_DATUM);
-  spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+  spr.setTextColor(MC.hl_text, MC.hl_bg);
   spr.drawString(value, valueX, y, FONT_SMALL);
 }
 
@@ -1883,7 +2006,7 @@ static void drawDateTime(int x, int y, int sx)
 
   int center = 40 + x + sx / 2;
   spr.setTextDatum(MC_DATUM);
-  spr.setTextColor(TH.menu_item);
+  spr.setTextColor(MC.item);
   spr.drawString(date, center, 41 + y, FONT_SMALL);
   spr.drawString(time, center, 64 + y, FONT_SMALL);
   spr.drawString("(UTC)", center, 91 + y, FONT_SMALL);
@@ -1920,9 +2043,9 @@ static void drawMemory(int x, int y, int sx)
 
     if(i==0) {
       drawZoomedMenu(text);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     spr.setTextDatum(MC_DATUM);
@@ -1936,14 +2059,14 @@ static void drawVolume(int x, int y, int sx)
   drawZoomedMenu(menu[MENU_VOLUME]);
   spr.setTextDatum(MC_DATUM);
 
-  spr.setTextColor(TH.menu_param);
+  spr.setTextColor(MC.param);
   spr.drawNumber(volume, 40+x+(sx/2), 66+y, FONT_DIGITS);
 
   if(muteOn(MUTE_MAIN))
   {
     for(int i=-3; i<4; i++)
     {
-      spr.drawLine(40+x+(sx/2) + 30 + i, 66 + y - 30 + i, 40+x+(sx/2) - 30 + i, 66 + y + 30 + i, TH.menu_param);
+      spr.drawLine(40+x+(sx/2) + 30 + i, 66 + y - 30 + i, 40+x+(sx/2) - 30 + i, 66 + y + 30 + i, MC.param);
     }
   }
 }
@@ -1953,7 +2076,7 @@ static void drawAgc(int x, int y, int sx)
   drawCommon(menu[MENU_AGC_ATT], x, y, sx);
   drawZoomedMenu(menu[MENU_AGC_ATT]);
   spr.setTextDatum(MC_DATUM);
-  spr.setTextColor(TH.menu_param);
+  spr.setTextColor(MC.param);
 
   // G8PTN: Read back value is not used
   // rx.getAutomaticGainControl();
@@ -1998,7 +2121,7 @@ static void drawSoftMuteMaxAtt(int x, int y, int sx)
   drawZoomedMenu(menu[MENU_SOFTMUTE]);
   spr.setTextDatum(MC_DATUM);
 
-  spr.setTextColor(TH.menu_param);
+  spr.setTextColor(MC.param);
   spr.drawString("Max Attn", 40+x+(sx/2), 32+y, FONT_SMALL);
   spr.drawNumber(softMuteMaxAttIdx, 40+x+(sx/2), 60+y, FONT_LARGE);
   spr.drawString("dB", 40+x+(sx/2), 90+y, FONT_LARGE);
@@ -2010,7 +2133,7 @@ static void drawCal(int x, int y, int sx)
   drawZoomedMenu(settings[MENU_CALIBRATION]);
   spr.setTextDatum(MC_DATUM);
 
-  spr.setTextColor(TH.menu_param);
+  spr.setTextColor(MC.param);
   if (currentMode == USB)
   {
     spr.drawString("USB", 40+x+(sx/2), 35+y, FONT_SMALL);
@@ -2033,7 +2156,7 @@ static void drawAvc(int x, int y, int sx)
   drawZoomedMenu(menu[MENU_AVC]);
   spr.setTextDatum(MC_DATUM);
 
-  spr.setTextColor(TH.menu_param);
+  spr.setTextColor(MC.param);
   if(isSSB() && ssbAvcHold)
   {
     spr.drawString("Hold", 40+x+(sx/2), 60+y, FONT_LARGE);
@@ -2059,9 +2182,9 @@ static void drawFmRegion(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(fmRegions[abs((FmRegionIdx+count+i)%count)].desc);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     // Prevent repeats for short menus
@@ -2083,9 +2206,9 @@ static void drawFmStereo(int x, int y, int sx)
   {
     if(i==0) {
       drawZoomedMenu(fmStereoDesc[abs((fmStereoIdx+count+i)%count)]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     } else {
-      spr.setTextColor(TH.menu_item);
+      spr.setTextColor(MC.item);
     }
 
     // Prevent repeats for short menus
@@ -2111,9 +2234,9 @@ static void drawDspPatches(int x, int y, int sx)
     if(i == 0)
     {
       drawZoomedMenu(patchSetNames[slot]);
-      spr.setTextColor(TH.menu_hl_text, TH.menu_hl_bg);
+      spr.setTextColor(MC.hl_text, MC.hl_bg);
     }
-    else spr.setTextColor(TH.menu_item);
+    else spr.setTextColor(MC.item);
     spr.setTextDatum(MC_DATUM);
     spr.drawString(patchSetNames[slot], 40+x+(sx/2), 64+y+(i*16), FONT_SMALL);
   }
@@ -2125,7 +2248,7 @@ static void drawBrt(int x, int y, int sx)
   drawZoomedMenu(settings[MENU_BRIGHTNESS]);
   spr.setTextDatum(MC_DATUM);
 
-  spr.setTextColor(TH.menu_param);
+  spr.setTextColor(MC.param);
   spr.drawNumber(currentBrt, 40+x+(sx/2), 60+y, FONT_LARGE);
 }
 
@@ -2134,7 +2257,7 @@ static void drawOffTimer(int x, int y, int sx)
   drawCommon(settings[MENU_OFFTIMER], x, y, sx);
   drawZoomedMenu(settings[MENU_OFFTIMER]);
   spr.setTextDatum(MC_DATUM);
-  spr.setTextColor(TH.menu_param);
+  spr.setTextColor(MC.param);
   uint16_t minutes = offTimerMinutes;
   char text[16];
   if(minutes) snprintf(text, sizeof(text), "%u", minutes);
@@ -2149,7 +2272,7 @@ static void drawSleep(int x, int y, int sx)
   drawZoomedMenu(settings[MENU_SLEEP]);
   spr.setTextDatum(MC_DATUM);
 
-  spr.setTextColor(TH.menu_param);
+  spr.setTextColor(MC.param);
   if(currentSleep)
   {
     spr.drawNumber(currentSleep, 40+x+(sx/2), 60+y, FONT_LARGE);
@@ -2165,7 +2288,7 @@ static void drawZoom(int x, int y, int sx)
   drawZoomedMenu(settings[MENU_ZOOM]);
   spr.setTextDatum(MC_DATUM);
 
-  spr.setTextColor(TH.menu_param);
+  spr.setTextColor(MC.param);
   spr.drawString(zoomMenu ? "On" : "Off", 40+x+(sx/2), 60+y, FONT_LARGE);
 }
 
@@ -2174,11 +2297,11 @@ static void drawScrollDir(int x, int y, int sx)
   drawCommon(settings[MENU_SCROLL], x, y, sx);
   drawZoomedMenu(settings[MENU_SCROLL]);
 
-  spr.fillRect(37+x+(sx/2), 45+y, 5, 40, TH.menu_param);
+  spr.fillRect(37+x+(sx/2), 45+y, 5, 40, MC.param);
   if(scrollDirection>0)
-    spr.fillTriangle(39+x+(sx/2)-5, 45+y, 39+x+(sx/2)+5, 45+y, 39+x+(sx/2), 45+y-5, TH.menu_param);
+    spr.fillTriangle(39+x+(sx/2)-5, 45+y, 39+x+(sx/2)+5, 45+y, 39+x+(sx/2), 45+y-5, MC.param);
   else
-    spr.fillTriangle(39+x+(sx/2)-5, 85+y, 39+x+(sx/2)+5, 85+y, 39+x+(sx/2), 85+y+5, TH.menu_param);
+    spr.fillTriangle(39+x+(sx/2)-5, 85+y, 39+x+(sx/2)+5, 85+y, 39+x+(sx/2), 85+y+5, MC.param);
 }
 
 static void drawInfo(int x, int y, int sx)
@@ -2187,9 +2310,9 @@ static void drawInfo(int x, int y, int sx)
 
   // Info box
   spr.setTextDatum(ML_DATUM);
-  spr.setTextColor(TH.box_text);
-  spr.fillRoundRect(1+x, 1+y, 76+sx, 110, 4, TH.box_bg);
-  spr.drawRoundRect(1+x, 1+y, 76+sx, 110, 4, TH.box_border);
+  spr.setTextColor(uiModern ? MC.item : TH.box_text);
+  spr.fillRoundRect(1+x, 1+y, 76+sx, 110, 4, uiModern ? MC.bg : TH.box_bg);
+  spr.drawRoundRect(1+x, 1+y, 76+sx, 110, 4, uiModern ? MC.border : TH.box_border);
 
   spr.drawString("Step:", 6+x, 64+y+(-3*16), FONT_SMALL);
   spr.drawString(getCurrentStep()->desc, 48+x, 64+y+(-3*16), FONT_SMALL);
@@ -2212,14 +2335,14 @@ static void drawInfo(int x, int y, int sx)
   spr.drawString("Vol:", 6+x, 64+y+(0*16), FONT_SMALL);
   if(muteOn(MUTE_MAIN) || muteOn(MUTE_SQUELCH))
   {
-    spr.setTextColor(TH.box_off_text, TH.box_off_bg);
+    spr.setTextColor(uiModern ? MC.item : TH.box_off_text, uiModern ? MC.bg : TH.box_off_bg);
     sprintf(text, muteOn(MUTE_MAIN) ? "Muted" : "%d/sq", volume);
     spr.drawString(text, 48+x, 64+y+(0*16), FONT_SMALL);
-    spr.setTextColor(TH.box_text);
+    spr.setTextColor(uiModern ? MC.item : TH.box_text);
   }
   else
   {
-    spr.setTextColor(TH.box_text);
+    spr.setTextColor(uiModern ? MC.item : TH.box_text);
     spr.drawNumber(volume, 48+x, 64+y+(0*16), FONT_SMALL);
   }
 
@@ -2282,10 +2405,21 @@ void drawSideBar(uint16_t cmd, int x, int y, int sx)
 {
   if(sleepOn()) return;
 
+  // v0: editors cover the screen with the same look as the icon menu and sit in the middle.
+  // Live adjustments (volume, squelch, AGC...) keep the main screen visible and use the side card.
+  const bool live = cmd == CMD_VOLUME || cmd == CMD_SQUELCH || cmd == CMD_AGC || cmd == CMD_BRT || cmd == CMD_SOFTMUTE || cmd == CMD_AVC ||
+                    cmd == CMD_UI || cmd == CMD_THEME || cmd == CMD_NUOPT;   // live previews
+  if(uiModern && cmd != CMD_MENU && cmd != CMD_SETTINGS && cmd != CMD_VISUAL && cmd != CMD_SCAN && !live)
+  {
+    nu::bgFill(spr, nu::menuPal(uiMenuColor, uiAccent, uiTextWhite, uiBgIdx));
+    x = 92; y = 28; sx = 60;
+  }
+
   switch(cmd)
   {
     case CMD_MENU:       drawMenu(x, y, sx);       break;
     case CMD_SETTINGS:   drawSettings(x, y, sx);   break;
+    case CMD_VISUAL:     drawVisual(x, y, sx);     break;
     case CMD_MODE:       drawMode(x, y, sx);       break;
     case CMD_STEP:       drawStep(x, y, sx);       break;
     case CMD_SEEK:       drawSeek(x, y, sx);       break;
@@ -2295,6 +2429,7 @@ void drawSideBar(uint16_t cmd, int x, int y, int sx)
     case CMD_THEME:      drawTheme(x, y, sx);      break;
     case CMD_UI:         drawUILayout(x, y, sx);   break;
     case CMD_LANG:       drawLanguage(x, y, sx);   break;
+    case CMD_NUOPT:      drawNuOpt(x, y, sx);      break;
     case CMD_VOLUME:     drawVolume(x, y, sx);     break;
     case CMD_AGC:        drawAgc(x, y, sx);        break;
     case CMD_SOFTMUTE:   drawSoftMuteMaxAtt(x, y, sx);break;

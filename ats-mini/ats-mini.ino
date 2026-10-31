@@ -885,6 +885,7 @@ void loop()
   needRedraw |= financeTick();
   needRedraw |= netStatusTick();
   backupTick();
+  needRedraw |= newTick();
   needRedraw |= cockpitTick();
   needRedraw |= analogTick();
   needRedraw |= avionicsTick();

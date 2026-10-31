@@ -9,6 +9,7 @@
 #include "Weather.h"
 #include "Finance.h"
 #include "NetStatus.h"
+#include "NewUI.h"
 
 //
 // Draw preferences write indicator
@@ -75,10 +76,29 @@ void drawWiFiIndicator(int x, int y)
 //
 // Draw operation status
 //
+NuPal nuCurrentPalette();
 bool drawStatus(int x, int y)
 {
   if(statusLines[0][0] || statusLines[1][0])
   {
+    if(uiModern)
+    {
+      // Two lines of status on a dark rounded box, centred, so the text stays readable over any screen
+      spr.setFont(FONT_SMALL);
+      int tw = max(spr.textWidth(statusLines[0]), spr.textWidth(statusLines[1])) + 24;
+      if(tw > 300) tw = 300;
+      const int nl = statusLines[1][0] ? 2 : 1;
+      const int bh = nl * 17 + 10, bx = 160 - tw / 2, by = 85 - bh / 2;
+      const NuPal np = nuCurrentPalette();
+      spr.fillRoundRect(bx, by, tw, bh, 8, ckMix(np.bg1, 0x0000, 200));
+      spr.drawRoundRect(bx, by, tw, bh, 8, np.acc);
+      spr.drawRoundRect(bx + 1, by + 1, tw - 2, bh - 2, 7, ckMix(np.bg1, np.acc, 70));
+      spr.setTextDatum(TC_DATUM);
+      spr.setTextColor(np.txt);
+      spr.drawString(statusLines[0], 160, by + 6, FONT_SMALL);
+      if(nl > 1) spr.drawString(statusLines[1], 160, by + 23, FONT_SMALL);
+      return(true);
+    }
     // Draw two lines of operation status
     spr.setTextDatum(TC_DATUM);
     spr.setTextColor(TH.rds_text);
@@ -95,7 +115,7 @@ bool drawStatus(int x, int y)
 //
 void drawZoomedMenu(const char *text, bool force)
 {
-  if (!zoomMenu && !force) return;
+  if((!zoomMenu || uiModern) && !force) return;
 
   spr.fillSmoothRoundRect(RDS_OFFSET_X - 72 + 1, RDS_OFFSET_Y - 3 + 1, 152, 26, 4, TH.menu_bg);
   spr.setTextDatum(TC_DATUM);
@@ -460,6 +480,8 @@ void drawScreen()
     return;
   }
 
+  if(uiLayoutIdx >= UI_NEW_FIRST) drawLayoutNew();
+  else
   switch(uiLayoutIdx)
   {
     case UI_SMETER:

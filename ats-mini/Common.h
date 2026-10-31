@@ -202,6 +202,12 @@ extern int8_t scrollDirection;
 extern bool encoderHalfStep;
 extern uint8_t utcOffsetIdx;
 extern uint8_t uiLayoutIdx;
+extern uint8_t uiAccent;      // 0..6 accent colour
+extern uint8_t uiTextWhite;   // Text colour index (see NU_TEXTS)
+extern uint8_t uiBgIdx;       // 0..4 background
+extern uint8_t uiMenuColor;   // 0 = same as the screen, 1..7 = own accent
+extern uint8_t uiMenuStyle;   // 0 original list menus and screens, 1 new look with carousel menus, 2 new look with grid menus
+#define uiModern (uiMenuStyle != 0)   // The new look (icon menus, restyled screens) is on for Carousel and Grid
 
 extern int8_t FmAgcIdx;
 extern int8_t AmAgcIdx;

@@ -25,6 +25,7 @@
 #include "PageFinance.h"
 #include "PageBackup.h"
 #include "Finance.h"
+#include "NewUI.h"
 #include "Backup.h"
 #include "Location.h"
 #include "Diag.h"
@@ -77,6 +78,7 @@ static struct
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
   int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
+  int accent, textCol, bgCol, menuCol, menuStyle;
   bool clamp, reverseScroll, halfStep, zoom;
   bool setClock;
   uint32_t epoch;
@@ -197,6 +199,8 @@ bool webTick()
     zoomMenu = configSettings.zoom;
     setEncoderHalfStep(configSettings.halfStep);
     uiLayoutIdx = configSettings.layout;
+    uiAccent = configSettings.accent; uiTextWhite = configSettings.textCol; uiBgIdx = configSettings.bgCol;
+    uiMenuColor = configSettings.menuCol; uiMenuStyle = configSettings.menuStyle;
     if(configSettings.lang >= 0 && configSettings.lang < LANG_TOTAL) uiLang = configSettings.lang;
     if(FmRegionIdx != configSettings.region)
       doFmRegion(configSettings.region - FmRegionIdx);
@@ -505,7 +509,13 @@ void webSetConfig(AsyncWebServerRequest *request)
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
   int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
+  int accent, textCol, bgCol, menuCol, menuStyle;
   if(!webConfigNumber(request, "uilayout", layout, 0, getTotalUILayouts() - 1) ||
+     !webConfigNumber(request, "uiaccent", accent, 0, NU_ACCENTS - 1) ||
+     !webConfigNumber(request, "uitext", textCol, 0, NU_TEXTS - 1) ||
+     !webConfigNumber(request, "uibg", bgCol, 0, NU_BGS - 1) ||
+     !webConfigNumber(request, "uimenucol", menuCol, 0, NU_ACCENTS) ||
+     !webConfigNumber(request, "uimenustyle", menuStyle, 0, 2) ||
      !webConfigNumber(request, "lang", lang, 0, getTotalLanguages() - 1) ||
      !webConfigNumber(request, "fmregion", region, 0, getTotalFMRegions() - 1) ||
      !webConfigNumber(request, "fmstereo", stereo, 0, getTotalFMStereoModes() - 1) ||
@@ -585,6 +595,8 @@ void webSetConfig(AsyncWebServerRequest *request)
     configSettings.setClock = setClock;
     configSettings.epoch = setClock? epoch : 0;
     configSettings.layout = layout;
+    configSettings.accent = accent; configSettings.textCol = textCol; configSettings.bgCol = bgCol;
+    configSettings.menuCol = menuCol; configSettings.menuStyle = menuStyle;
     configSettings.lang = lang;
     configSettings.region = region;
     configSettings.stereo = stereo;
@@ -1221,6 +1233,7 @@ const String webConfigPage()
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
   int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
+  int accent, textCol, bgCol, menuCol, menuStyle;
   bool clamp, reverseScroll, halfStep, zoom;
   {
     // A redirect may arrive before the main task has applied the saved values.
@@ -1232,6 +1245,11 @@ const String webConfigPage()
     halfStep = configSettings.pending ? configSettings.halfStep : encoderHalfStep;
     rds = configSettings.pending ? configSettings.rds : rdsModeIdx;
     layout = configSettings.pending ? configSettings.layout : uiLayoutIdx;
+    accent = configSettings.pending ? configSettings.accent : uiAccent;
+    textCol = configSettings.pending ? configSettings.textCol : uiTextWhite;
+    bgCol = configSettings.pending ? configSettings.bgCol : uiBgIdx;
+    menuCol = configSettings.pending ? configSettings.menuCol : uiMenuColor;
+    menuStyle = configSettings.pending ? configSettings.menuStyle : uiMenuStyle;
     lang = configSettings.pending ? configSettings.lang : uiLang;
     region = configSettings.pending ? configSettings.region : FmRegionIdx;
     stereo = configSettings.pending ? configSettings.stereo : fmStereoIdx;
@@ -1260,6 +1278,11 @@ const String webConfigPage()
     {"tcp_options", [&](String &out) { webConfigOptions(out, tcpModeDesc, getTotalTCPModes(), tcpMode); }},
     {"ble_options", [&](String &out) { webConfigOptions(out, bleModeDesc, getTotalBluetoothModes(), bleMode); }},
     {"layout_options", [&](String &out) { webConfigOptions(out, uiLayoutDesc, getTotalUILayouts(), layout); }},
+    {"accent_options", [&](String &out) { webConfigOptions(out, nuAccentName, NU_ACCENTS, accent); }},
+    {"text_options", [&](String &out) { webConfigOptions(out, nuTextName, NU_TEXTS, textCol); }},
+    {"bg_options", [&](String &out) { webConfigOptions(out, nuBgName, NU_BGS, bgCol); }},
+    {"menucol_options", [&](String &out) { static const char *const n[NU_ACCENTS + 1] = {"Same as accent", "Amber", "Green", "Cyan", "Blue", "Magenta", "Red", "White"}; webConfigOptions(out, n, NU_ACCENTS + 1, menuCol); }},
+    {"menustyle_options", [&](String &out) { static const char *const n[3] = {"Original", "Carousel", "Grid"}; webConfigOptions(out, n, 3, menuStyle); }},
     {"lang_options", [&](String &out) { webConfigOptions(out, uiLangDesc, getTotalLanguages(), lang); }},
     {"rds_options", [&](String &out) {
       for(int i=0 ; i<getTotalRDSModes(); i++)

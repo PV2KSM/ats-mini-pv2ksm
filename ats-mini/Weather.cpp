@@ -9,10 +9,15 @@
 #include "NetFetch.h"
 #include "Radar.h"
 #define WX_DATUM(d) ((lgfx::textdatum_t)(d))
-#define WX_PAGES 5
+#include "Common.h"
+#define WX_PAGES (uiModern ? 4 : 5)   // The rain radar page only exists in the original look
 #include "WeatherUI.h"
 #include "Utils.h"
 #include "Menu.h"
+#include "NewUI.h"
+NuPal nuCurrentPalette();
+#define WXT(...) (uiModern ? wxText(__VA_ARGS__) : wxo::wxText(__VA_ARGS__))
+#define WXC(...) (uiModern ? wxChip(__VA_ARGS__) : wxo::wxChip(__VA_ARGS__))
 #include <WiFi.h>
 #include <NetworkClientSecure.h>
 #include <HTTPClient.h>
@@ -345,16 +350,17 @@ static void drawMetarPage(LGFX_Sprite &spr, int kind, bool day, const char *plac
   strlcpy(st, metarStatus, sizeof(st));
   okMs = metarOkMs;
   unlock();
-  (void)t; (void)place;
+  (void)place;
 
   const int W = 320, H = 170;
   WxBg bg = wxBackground(kind, day, H);
   for(int y = 0 ; y < H ; y++) spr.fillRect(0, y, W, 1, bg.at(y));
-  const uint16_t cW = wxRgb(255, 255, 255), cDim = wxRgb(206, 220, 238), cSh = wxRgb(8, 20, 44), cWarn = wxRgb(255, 214, 90);
+  if(uiModern) wxAmbient(spr, kind, day, t, bg);
+  const uint16_t cW = uiModern ? wxTxt : wxRgb(255, 255, 255), cDim = wxRgb(206, 220, 238), cSh = wxRgb(8, 20, 44), cWarn = wxRgb(255, 214, 90);
 
   char buf[64];
   snprintf(buf, sizeof(buf), "METAR %s", icao[0] ? icao : "");
-  wxText(spr, buf, 8, 4, FONT_SMALL, cW, 0, cSh);
+  WXT(spr, buf, 8, 4, FONT_SMALL, cW, 0, cSh);
   for(int i = 0 ; i < WX_PAGES ; i++)
   {
     int dx = 316 - (WX_PAGES - 1 - i) * 10;
@@ -363,18 +369,18 @@ static void drawMetarPage(LGFX_Sprite &spr, int kind, bool day, const char *plac
 
   if(!raw[0])
   {
-    wxText(spr, st[0] ? st : tr(T_SEARCHING_METAR), 160, 80, FONT_SMALL, st[0] ? cWarn : cW, 4, cSh);
+    WXT(spr, st[0] ? st : tr(T_SEARCHING_METAR), 160, 80, FONT_SMALL, st[0] ? cWarn : cW, uiModern ? 1 : 4, cSh);
     return;
   }
 
   MetarInfo m;
   decodeMetar(raw, &m);
   const int ageMin = okMs ? (int)((millis() - okMs) / 60000UL) : 0;
-  if(st[0]) wxText(spr, st, 306 - WX_PAGES * 10, 8, FONT_DEFAULT, cWarn, 2, cSh);
+  if(st[0]) WXT(spr, st, 306 - WX_PAGES * 10, 8, FONT_DEFAULT, cWarn, 2, cSh);
   else
   {
     snprintf(buf, sizeof(buf), "%s%s", m.time, m.time[0] ? "  " : ""); { size_t l = strlen(buf); snprintf(buf + l, sizeof(buf) - l, tr(T_FETCHED), ageMin); }
-    wxText(spr, buf, 306 - WX_PAGES * 10, 8, FONT_DEFAULT, cDim, 2, cSh);
+    WXT(spr, buf, 306 - WX_PAGES * 10, 8, FONT_DEFAULT, cDim, 2, cSh);
   }
 
   struct Cell { const char *label; const char *value; };
@@ -385,13 +391,13 @@ static void drawMetarPage(LGFX_Sprite &spr, int kind, bool day, const char *plac
   for(int i = 0 ; i < 6 ; i++)
   {
     const int x = 8 + (i % 3) * 104, y = 26 + (i / 3) * 42;
-    wxChip(spr, x, y, 100, 38);
-    wxText(spr, cells[i].label, x + 6, y + 4, FONT_DEFAULT, cDim, 0);
-    wxText(spr, cells[i].value[0] ? cells[i].value : "-", x + 6, y + 18, FONT_SMALL, cW, 0);
+    WXC(spr, x, y, 100, 38);
+    WXT(spr, cells[i].label, x + 6, y + 4, FONT_DEFAULT, cDim, 0);
+    WXT(spr, cells[i].value[0] ? cells[i].value : "-", x + 6, y + 18, FONT_SMALL, cW, 0);
   }
 
   // Raw message, wrapped to the screen (6 px characters)
-  wxChip(spr, 6, 112, 308, 52);
+  WXC(spr, 6, 112, 308, 52);
   const int perLine = 50;
   int y = 116;
   const char *p = raw;
@@ -407,7 +413,7 @@ static void drawMetarPage(LGFX_Sprite &spr, int kind, bool day, const char *plac
     char ln[perLine + 2];
     memcpy(ln, p, len);
     ln[len] = 0;
-    wxText(spr, ln, 10, y, FONT_DEFAULT, cW, 0);
+    WXT(spr, ln, 10, y, FONT_DEFAULT, cW, 0);
     y += 12;
     p += len;
     while(*p == ' ') p++;
@@ -497,7 +503,7 @@ int weatherPage() { return page; }
 // Encoder click: zoom on the radar page. False = not handled (the screen closes).
 bool weatherClick()
 {
-  if(page != 4) return false;
+  if(uiModern || page != 4) return false;
   radarToggleZoom();
   return true;
 }
@@ -506,7 +512,7 @@ void weatherScroll(int16_t delta)
 {
   if(delta > 0) page = (page + 1) % WX_PAGES;
   else if(delta < 0) page = (page + WX_PAGES - 1) % WX_PAGES;
-  if(page == 4) radarWake();
+  if(!uiModern && page == 4) radarWake();
 }
 
 // Redraw ~8 times per second for the animated icons while the screen is open
@@ -515,7 +521,7 @@ bool weatherTick()
   static uint32_t shownMs = 0;
   if(!weatherIsActive()) return false;
   uint32_t now = millis();
-  if((uint32_t)(now - shownMs) >= (page == 4 ? 500UL : 120UL)) { shownMs = now; return true; }
+  if((uint32_t)(now - shownMs) >= (!uiModern && page == 4 ? 500UL : 120UL)) { shownMs = now; return true; }
   return false;
 }
 
@@ -535,7 +541,8 @@ void weatherDraw(LGFX_Sprite &spr)
   snprintf(place, sizeof(place), "%s  %s", loc.label[0] ? loc.label : "", loc.name);
   int ageMin = okMs ? (int)((millis() - okMs) / 60000UL) : 0;
 
-  if(page == 4)
+  if(uiModern) { const NuPal np = nuCurrentPalette(); wxAcc = np.acc; wxTxt = np.txt; }
+  if(!uiModern && page == 4)
   {
     radarDraw(spr);
     spr.pushSprite(0, 0);
@@ -548,7 +555,8 @@ void weatherDraw(LGFX_Sprite &spr)
     spr.pushSprite(0, 0);
     return;
   }
-  wxDrawScreen(spr, snap, place, st, ageMin, page, (float)(millis() % 100000UL) / 1000.0f,
-               FONT_DEFAULT, FONT_SMALL, FONT_LARGE, FONT_DIGITS);
+  const float tt = (float)(millis() % 100000UL) / 1000.0f;
+  if(uiModern) wxDrawScreen(spr, snap, place, st, ageMin, page, tt, FONT_DEFAULT, FONT_SMALL, FONT_LARGE, FONT_DIGITS);
+  else wxo::wxDrawScreen(spr, snap, place, st, ageMin, page, tt, FONT_DEFAULT, FONT_SMALL, FONT_LARGE, FONT_DIGITS);
   spr.pushSprite(0, 0);
 }

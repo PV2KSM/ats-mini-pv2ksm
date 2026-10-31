@@ -10,6 +10,8 @@
 #include <esp_heap_caps.h>
 #include <string.h>
 #include "I18n.h"
+#include "NewUI.h"
+NuPal nuCurrentPalette();
 
 // Implemented by the service modules
 void flightsInfo(char *st, size_t size, uint32_t *okMs);
@@ -52,16 +54,19 @@ static void ageText(char *out, size_t size, uint32_t okMs)
 void netStatusDraw(LGFX_Sprite &spr)
 {
   const int W = 320, H = 170;
-  for(int y = 0 ; y < H ; y++) spr.fillRect(0, y, W, 1, rgb(8 + y / 16, 20 + y / 9, 40 + y / 6));
+  const NuPal np = nuCurrentPalette();
+  if(uiModern) nu::bgFill(spr, np);
+  else for(int y = 0 ; y < H ; y++) spr.fillRect(0, y, W, 1, rgb(8 + y / 16, 20 + y / 9, 40 + y / 6));
 
-  const uint16_t cW = 0xFFFF, cDim = rgb(160, 190, 215), cOk = rgb(120, 230, 170), cWarn = rgb(255, 200, 80), cBad = rgb(255, 120, 110);
+  const uint16_t cW = uiModern ? np.txt : 0xFFFF, cDim = uiModern ? np.txt2 : rgb(160, 190, 215), cOk = rgb(120, 230, 170), cWarn = rgb(255, 200, 80), cBad = rgb(255, 120, 110);
   spr.setTextDatum(TL_DATUM);
-  spr.setTextColor(cW);
+  spr.setTextColor(uiModern ? np.acc : cW);
   spr.drawString(page == 0 ? tr(T_NET_TITLE) : tr(T_SVC_TITLE), 8, 5, FONT_SMALL);
   for(int i = 0 ; i < PAGES ; i++)
   {
     const int dx = 316 - (PAGES - 1 - i) * 10;
-    if(i == page) spr.fillCircle(dx, 12, 3, cW); else spr.drawCircle(dx, 12, 3, cDim);
+    if(uiModern) { if(i == page) spr.fillCircle(dx, 12, 4, np.acc); else spr.drawCircle(dx, 12, 3, np.muted); }
+    else if(i == page) spr.fillCircle(dx, 12, 3, cW); else spr.drawCircle(dx, 12, 3, cDim);
   }
 
   char buf[96];
@@ -118,21 +123,37 @@ void netStatusDraw(LGFX_Sprite &spr)
       { tr(T_SVC_FLIGHTS), flightsInfo }, { tr(T_SVC_MAP), mapInfo }, { tr(T_SVC_WEATHER), weatherInfo },
       { "METAR",   metarInfo },   { "Radar",   radarInfo },   { tr(T_SVC_FINANCE), financeInfo },
     };
+    int row = 0;
     for(int i = 0 ; i < 6 ; i++)
     {
+      if(uiModern && i == 4) continue;     // the rain radar page only exists in the original look
       char st[40] = "";
       uint32_t okMs = 0;
       svcs[i].info(st, sizeof(st), &okMs);
-      const int y = 28 + i * 23;
-      spr.fillRectAlpha(6, y, W - 12, 21, 80, (uint32_t)0x000000);
       const bool ok = okMs && !st[0];
-      spr.fillRect(6, y, 3, 21, ok ? cOk : (okMs ? cWarn : rgb(90, 110, 130)));
-      spr.setTextColor(cW); spr.drawString(svcs[i].name, 16, y + 3, FONT_SMALL);
-      char age[16];
-      ageText(age, sizeof(age), okMs);
-      spr.setTextColor(cDim); spr.drawString(age, 96, y + 7, FONT_DEFAULT);
-      spr.setTextColor(ok ? cOk : cWarn);
-      spr.drawString(ok ? "OK" : (st[0] ? st : tr(T_WAITING)), 140, y + 3, FONT_SMALL);
+      if(uiModern)
+      {
+        const int y = 30 + row * 27;
+        nu::card(spr, 6, y, W - 12, 24, 7, np);
+        spr.fillCircle(19, y + 12, 4, ok ? cOk : (okMs ? cWarn : rgb(90, 110, 130)));
+        spr.setTextColor(cW); spr.drawString(svcs[i].name, 30, y + 5, FONT_SMALL);
+        char age[16]; ageText(age, sizeof(age), okMs);
+        spr.setTextColor(cDim); spr.drawString(age, 106, y + 9, FONT_DEFAULT);
+        spr.setTextColor(ok ? cOk : cWarn);
+        spr.drawString(ok ? "OK" : (st[0] ? st : tr(T_WAITING)), 150, y + 5, FONT_SMALL);
+      }
+      else
+      {
+        const int y = 28 + i * 23;
+        spr.fillRectAlpha(6, y, W - 12, 21, 80, (uint32_t)0x000000);
+        spr.fillRect(6, y, 3, 21, ok ? cOk : (okMs ? cWarn : rgb(90, 110, 130)));
+        spr.setTextColor(cW); spr.drawString(svcs[i].name, 16, y + 3, FONT_SMALL);
+        char age[16]; ageText(age, sizeof(age), okMs);
+        spr.setTextColor(cDim); spr.drawString(age, 96, y + 7, FONT_DEFAULT);
+        spr.setTextColor(ok ? cOk : cWarn);
+        spr.drawString(ok ? "OK" : (st[0] ? st : tr(T_WAITING)), 140, y + 3, FONT_SMALL);
+      }
+      row++;
     }
   }
 }

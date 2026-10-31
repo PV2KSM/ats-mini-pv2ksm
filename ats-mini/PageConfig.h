@@ -15,6 +15,11 @@ static const char pageConfig[] PROGMEM = R"HTML(<H1>{{title}}</H1>
     <TR><TD CLASS="LABEL">Time Zone</TD><TD><SELECT ID="utcoffset" NAME="utcoffset">{{{utc_options}}}</SELECT></TD></TR>
     <TR><TH COLSPAN="2" CLASS="HEADING">UI</TH></TR>
     <TR><TD CLASS="LABEL">UI Layout</TD><TD><SELECT NAME="uilayout">{{{layout_options}}}</SELECT></TD></TR>
+    <TR><TD CLASS="LABEL">Accent color</TD><TD><SELECT NAME="uiaccent">{{{accent_options}}}</SELECT></TD></TR>
+    <TR><TD CLASS="LABEL">Text color</TD><TD><SELECT NAME="uitext">{{{text_options}}}</SELECT></TD></TR>
+    <TR><TD CLASS="LABEL">Background</TD><TD><SELECT NAME="uibg">{{{bg_options}}}</SELECT></TD></TR>
+    <TR><TD CLASS="LABEL">Menu color</TD><TD><SELECT NAME="uimenucol">{{{menucol_options}}}</SELECT></TD></TR>
+    <TR><TD CLASS="LABEL">Menu style</TD><TD><SELECT NAME="uimenustyle">{{{menustyle_options}}}</SELECT></TD></TR>
     <TR><TD CLASS="LABEL">Language (Weather, Flights, Finance)</TD><TD><SELECT NAME="lang">{{{lang_options}}}</SELECT></TD></TR>
     <TR><TD CLASS="LABEL">Theme</TD><TD><SELECT NAME="theme">{{{theme_options}}}</SELECT></TD></TR>
     <TR><TD CLASS="LABEL">Reverse Scrolling</TD><TD><INPUT TYPE="CHECKBOX" NAME="scroll" VALUE="on" {{scroll}}></TD></TR>

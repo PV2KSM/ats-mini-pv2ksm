@@ -50,6 +50,8 @@ bool drawStatus(int x, int y);
 void drawRadioText(int y, int ymax);
 void drawScale(uint32_t freq); // Hz
 
+void drawLayoutNew();
+bool newTick();   // True when a new-style main screen needs an animation frame
 void drawLayoutDefault();
 void drawLayoutSmeter();
 void drawLayoutCockpit();

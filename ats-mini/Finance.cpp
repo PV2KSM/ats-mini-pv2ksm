@@ -14,6 +14,8 @@
 #include <string.h>
 #include <math.h>
 #include "I18n.h"
+#include "NewUI.h"
+NuPal nuCurrentPalette();
 
 #define FIN_REFRESH_MS   (5UL * 60UL * 1000UL)   // While the screen stays open
 #define FIN_STALE_MS     (2UL * 60UL * 1000UL)   // Refetch on open if older than this
@@ -294,13 +296,15 @@ void financeDraw(LGFX_Sprite &spr)
   unlock();
 
   const int W = 320, H = 170;
-  for(int y = 0 ; y < H ; y++)
+  const NuPal np = nuCurrentPalette();
+  if(uiModern) nu::bgFill(spr, np);
+  else for(int y = 0 ; y < H ; y++)
     spr.fillRect(0, y, W, 1, rgb(10 + y / 14, 30 + y / 7, 44 + y / 5));    // Deep teal gradient
 
-  const uint16_t cW = 0xFFFF, cDim = rgb(170, 200, 210), cGold = rgb(255, 196, 70), cGreen = rgb(120, 230, 170), cBlue = rgb(120, 175, 255);
+  const uint16_t cW = uiModern ? np.txt : 0xFFFF, cDim = uiModern ? np.txt2 : rgb(170, 200, 210), cGold = rgb(255, 196, 70), cGreen = rgb(120, 230, 170), cBlue = rgb(120, 175, 255);
 
   spr.setTextDatum(TL_DATUM);
-  spr.setTextColor(cW);
+  spr.setTextColor(uiModern ? np.acc : cW);
   spr.drawString(tr(T_FIN_TITLE), 8, 5, FONT_SMALL);
   spr.setTextDatum(TR_DATUM);
   if(st[0]) { spr.setTextColor(cGold); spr.drawString(st, W - 8, 8, FONT_DEFAULT); }
@@ -328,8 +332,8 @@ void financeDraw(LGFX_Sprite &spr)
   // (the large font draws "$" as a pound sign)
   auto card = [&](int y, int h, const char *label, const char *note, const char *symbol, const char *value, uint16_t col)
   {
-    spr.fillRectAlpha(6, y, W - 12, h, 90, (uint32_t)0x000000);
-    spr.fillRect(6, y, 3, h, col);
+    if(uiModern) { nu::card(spr, 6, y, W - 12, h, 8, np); spr.fillRoundRect(10, y + 6, 3, h - 12, 1, col); }
+    else { spr.fillRectAlpha(6, y, W - 12, h, 90, (uint32_t)0x000000); spr.fillRect(6, y, 3, h, col); }
     spr.setTextDatum(TL_DATUM);
     spr.setTextColor(cDim);
     spr.drawString(label, 16, y + 3, FONT_DEFAULT);
@@ -365,6 +369,6 @@ void financeDraw(LGFX_Sprite &spr)
   else card(110, 42, "BITCOIN (BTC)", "", "US$", usdTxt, cGold);
 
   spr.setTextDatum(BL_DATUM);
-  spr.setTextColor(rgb(120, 150, 160));
+  spr.setTextColor(uiModern ? np.muted : rgb(120, 150, 160));
   spr.drawString(tr(T_FIN_SOURCES), 8, H - 3, FONT_DEFAULT);
 }
