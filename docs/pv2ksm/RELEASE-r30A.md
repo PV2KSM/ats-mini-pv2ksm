@@ -97,6 +97,8 @@ No CPU-speed option (the radio stays at 80 MHz). Japanese/Chinese are not includ
 
 ## How to update
 1. **Back up** first (web UI → Backup → export; leave "include Wi-Fi/keys" **off** if you will share the file).
+> ⚠️ **Do not use the radio's online "Update → Install" for this mod.** It checks the *original* project's releases (not this one), so it says "Already up to date" and, if the original project publishes a newer version, it would install the original firmware over the mod. Always use **Manual upload**.
+
 2. Open the radio's IP in a browser → *Update* → *Manual upload* → pick the `*-ota.bin` of **your** variant.
 3. Wait for the reboot; don't power off while writing.
 4. To try the new look: **Menu → Visual → Menu style → Carousel or Grid**. To go back: choose **Original**.
@@ -125,4 +127,4 @@ Credits: ESP32-SI4732 / ATS-Mini (MIT) · B612 font (SIL OFL 1.1) · LovyanGFX �
 - **Correções (issue #3, obrigado G8PTN):** a página web *Location* agora mostra na hora os valores de *Show map* / *Map style* salvos; a tela *Flights* sem mapa segue a configuração *Background* em vez de ficar sempre preta.
 - **Fora desta versão:** opção de velocidade da CPU; japonês e chinês.
 
-**Como atualizar:** faça backup → abra o IP do rádio → *Update* → *Manual upload* → escolha o `*-ota.bin` da sua variante. Para usar o visual novo: **Menu → Visual → Menu style → Carrossel ou Grade**; para voltar: **Original**.
+**Como atualizar:** ⚠️ **não use o *Update → Install* online do rádio** com este mod: ele consulta as releases do projeto *original* (diz "Already up to date" e, se o original lançar versão nova, instalaria o firmware original por cima do mod). Use sempre o **Manual upload**. Faça backup → abra o IP do rádio → *Update* → *Manual upload* → escolha o `*-ota.bin` da sua variante. Para usar o visual novo: **Menu → Visual → Menu style → Carrossel ou Grade**; para voltar: **Original**.
