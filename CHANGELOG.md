@@ -6,6 +6,11 @@ The user manual is available at <https://esp32-si4732.github.io/ats-mini/manual.
 
 ## PV2KSM r30A (2026-10-31) - graphics update
 
+### Fix
+
+- Web UI Location page showed stale Show map / Map style values right after Save (issue #3).
+- Flights screen without a map now follows the Background setting instead of always black (issue #3).
+
 ### Added
 
 - New look, opt-in: Menu > Visual > Menu style (Original / Carousel / Grid). Carousel and Grid turn on icon menus, restyled editors, a centred status box and restyled Finance, Network and Weather screens. Original is the default and keeps the r30 look.

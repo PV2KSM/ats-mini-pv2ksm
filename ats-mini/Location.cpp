@@ -80,9 +80,10 @@ void locationGetCartoKey(char *out, size_t size)
 void locationGetMapCfg(char *url, size_t size, bool *on, uint8_t *style)
 {
   std::lock_guard<std::mutex> lock(mtx);
-  if(url) strlcpy(url, mapUrl, size);
-  if(on) *on = mapOn;
-  if(style) *style = mapStyle;
+  // Show the values just submitted (still pending) so the web page is up to date right after Save
+  if(url) strlcpy(url, havePendingMap ? pendingMapUrl : mapUrl, size);
+  if(on) *on = havePendingMap ? pendingMapOn : mapOn;
+  if(style) *style = havePendingMap ? pendingMapStyle : mapStyle;
 }
 
 const char *locationRequestMapCfg(const char *url, bool on, uint8_t style)

@@ -21,6 +21,7 @@
 #include "Location.h"
 #include "Diag.h"
 #include "Map.h"
+#include "NewUI.h"
 #include <esp_heap_caps.h>
 #include <math.h>
 #include <string.h>
@@ -462,6 +463,7 @@ void flightsDraw(LGFX_Sprite &spr)
 
   // ---- Basemap ----
   const bool haveMap = mapDraw(spr, 0, 0);
+  if(!haveMap) nu::bgFill(spr, nuPalette(uiAccent, uiTextWhite, uiBgIdx));   // No map: follow the Background setting
   const float kPx = (float)MAP_R / (float)radius;           // Screen pixels per nautical mile
   spr.setTextDatum(TL_DATUM);
 
