@@ -60,16 +60,16 @@ The names and titles in the Carousel and Grid menus now follow **Settings → La
 *Config → UI*: new selectors **Accent color, Text color, Background, Menu color, Menu style** (the layout list shows the new layouts).
 
 ### What changed since r30A
-- **Scan screen for every layout, each with its own model.** Because the UI layouts are so different from each other, the Scan screen is designed per layout instead of one generic graph. While scanning, the screen shows a large graph with the frequency, **RSSI**, **SNR**, the scale and the strongest peak. Each layout has its own look (background and colours): Neo Analog, Neo S-Meter, Vintage, Clock, Memories (station name), Minimal, VFD and LCD (segment bars), Neon, plus **Cockpit, Analog and Avionics**. The original *Default* and *S-Meter* layouts keep the classic Scan graph. *(Design sketches below; the colours on the radio may differ slightly.)*
+- **Scan screen for every layout, each with its own model.** Drawing the Scan graph on top of each main UI layout is complex (it overlapped icons, names and meters), and the layouts are very different from each other, so **every UI layout now has its own Scan screen** instead of one generic graph. While scanning, the screen shows a large graph with the frequency, **RSSI**, **SNR**, the scale and the strongest peak. Each layout has its own look (background and colours): Neo Analog, Neo S-Meter, Vintage, Clock, Memories (station name), Minimal, VFD and LCD (segment bars), Neon, plus **Cockpit, Analog and Avionics**. The original *Default* and *S-Meter* layouts keep the classic Scan graph. *(Design sketches below; the colours on the radio may differ slightly.)*
 - **Frequency digit cursor** (underline on the selected digit) in all the new layouts, and **MUTED / SQ** badges that no longer overlap other items.
 - **Station names** no longer overlap (long names scroll).
 - **Status messages** (e.g. "Loading EiBi Schedule") now sit on a box with a background in every layout.
 - **Menus over the original layouts:** the side bar no longer overlaps the menu icons and the info box is no longer drawn in the middle of the screen (Carousel/Grid with Default, S-Meter, Cockpit, Analog and Avionics).
 - **Web interface:**
-  - **Control** tab redesigned: the radio screen stays fixed at the top, then tuning, **encoder buttons (Rotate ◀ ▶, Click, Short press)** as asked by G8PTN, volume, signal, go-to-frequency, band and mode. Texts in PT/EN/ES.
+  - **Control the radio from the browser:** the **Control** tab was redesigned: the radio screen stays fixed at the top, then tuning, **encoder buttons (Rotate ◀ ▶, Click, Short press)** as asked by G8PTN, volume, signal, go-to-frequency, band and mode. Texts in PT/EN/ES.
   - New texts are translated into Portuguese and Spanish.
 - **Rain radar** is back as the last Weather page in the new look too (click the encoder to zoom).
-- **Map:** **OpenStreetMap** is now the preconfigured map source (no key needed) and CARTO was removed. Attribution is shown on the map and in *About*. Existing CARTO settings are migrated.
+- **Maps work out of the box:** Flights and the rain radar now use **OpenStreetMap** directly (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`, preconfigured, **no key needed**). CARTO was removed. Attribution is shown on the map and in *About*. Existing CARTO settings are migrated.
 - **Online update disabled** in this mod ("Mod: use Manual upload.") so that it can never install the original firmware over the mod.
 
 ### Known issue
