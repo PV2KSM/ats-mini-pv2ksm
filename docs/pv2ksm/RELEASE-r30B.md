@@ -7,7 +7,7 @@
 ## ⚠️ Tested hardware — read first
 | Variant | Status |
 |---|---|
-| **ATS-Mini, OSPI** (ESP32-S3, 8 MB octal PSRAM, Si4732) | ⏳ **TO FILL IN by the author after testing on the radio** |
+| **ATS-Mini, OSPI** (ESP32-S3, 8 MB octal PSRAM, Si4732) | ✅ **Tested on the radio by the author** (the test build of this version) |
 | ATS-Mini, QSPI | ⚠️ Compiled only — **not tested on hardware** |
 | LilyGO T-Embed (Si473x) | ⚠️ Compiled only — **not tested on hardware** |
 
@@ -145,7 +145,7 @@ Credits: ESP32-SI4732 / ATS-Mini (MIT) · B612 font (SIL OFL 1.1) · LovyanGFX �
 
 **r30B = r30A + correções e acabamento.** O rádio sintoniza, conecta e traduz como antes. O que muda é **o visual e o controle**: menus de ícones, layouts novos, uma **tela de Scan própria para cada layout**, a nova aba web **Control**, o **radar de chuva no visual novo** e o mapa **OpenStreetMap** já configurado (sem chave). **O visual original continua sendo o padrão** — você escolhe se quer o novo.
 
-**⚠️ Status do teste:** OSPI — *(preencher após testar)*. QSPI e LilyGO T-Embed: **só compiladas, sem teste em hardware**. Grave só o arquivo da sua variante. As imagens são **desenhos/renderizações feitas no PC** (não são fotos do rádio). A CPU continua em **80 MHz**.
+**⚠️ Status do teste:** OSPI — **testada no rádio pelo autor**. QSPI e LilyGO T-Embed: **só compiladas, sem teste em hardware**. Grave só o arquivo da sua variante. As imagens são **desenhos/renderizações feitas no PC** (não são fotos do rádio). A CPU continua em **80 MHz**.
 
 **Novidades desde a r30A**
 - **Scan para todos os layouts novos:** gráfico grande com frequência, **RSSI**, **SNR**, escala e o pico mais forte, com fundo e cores próprios em cada layout (Neo Analog, Neo S-Meter, Vintage, Clock, Memories, Minimal, VFD, LCD, Neon e também **Cockpit, Analog e Avionics**). Os layouts *Default* e *S-Meter* mantêm o gráfico clássico.
