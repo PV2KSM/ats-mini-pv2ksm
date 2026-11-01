@@ -6,6 +6,7 @@
 #include "Utils.h"
 #include "Menu.h"
 #include "Draw.h"
+#include "StatusChips.h"
 #include "AnalogUI.h"
 
 // Needle animation frames while the main screen is idle on this layout
@@ -43,6 +44,9 @@ void drawLayoutAnalog()
   in.rssi = rssi;
   in.snr = snr;
   in.stereo = (currentMode == FM) && (fmStereoIdx != FM_STEREO_MONO) && rx.getCurrentPilot();
+  in.squelch = currentSquelch[currentMode] & 0x7f;
+  in.sqlSnr = (currentSquelch[currentMode] & 0x80) != 0;
+  in.muted = muteOn(MUTE_MAIN);
   in.hl = (currentCmd == CMD_FREQ) ? getFreqInputPos() + (pushAndRotate ? 0x80 : 0) : 100;
 
   // Smoothed needles (fast attack, a little slower release)
@@ -56,6 +60,7 @@ void drawLayoutAnalog()
   const bool idle = (currentCmd == CMD_NONE || currentCmd == CMD_FREQ);
 
   if(currentCmd == CMD_SCAN) drawScanForLayout(in, SCAN_STYLE_ANALOG);
+  else scDraw(spr, in, SC_ANALOG, 0, 0, 0);
   drawSaveIndicator(190, 0);
   drawBleIndicator(204, 0);
   bool has_voltage = drawBattery(BATT_OFFSET_X, BATT_OFFSET_Y);

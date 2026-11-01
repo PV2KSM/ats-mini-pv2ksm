@@ -73,7 +73,7 @@ static void unlock() { if(mtx) xSemaphoreGive(mtx); }
 static void setStatus(const char *s)
 {
   lock();
-  snprintf(status, sizeof(status), "%s", s ? s : "Erro");
+  snprintf(status, sizeof(status), "%s", s ? s : tr(T_UNKNOWN_ERR));
   version++;
   unlock();
 }

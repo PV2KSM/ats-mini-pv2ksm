@@ -156,9 +156,9 @@ static const char pageStatus[] PROGMEM = R"HTML(<STYLE>
     var h = '<DIV CLASS="place">' + place + '</DIV><DIV CLASS="now">' + icon(k, day) +
       '<DIV><DIV CLASS="temp">' + Math.round(c.temperature_2m) + '&deg;</DIV><DIV CLASS="desc">' + desc(c.weather_code) + '</DIV></DIV></DIV>';
     h += '<DIV CLASS="meta">' + TR('Feels like') + ' ' + Math.round(c.apparent_temperature) + '&deg; &middot; ' + TR('Max') + ' ' + Math.round(d.temperature_2m_max[0]) + '&deg; &middot; ' + TR('Min') + ' ' + Math.round(d.temperature_2m_min[0]) + '&deg;</DIV>';
-    h += '<DIV CLASS="wchips"><SPAN CLASS="wchip">Umidade ' + Math.round(c.relative_humidity_2m) + '%</SPAN>' +
-      '<SPAN CLASS="wchip">Vento ' + Math.round(c.wind_speed_10m) + ' km/h</SPAN>' +
-      '<SPAN CLASS="wchip">Chuva ' + Math.round(d.precipitation_probability_max[0] || 0) + '%</SPAN>' +
+    h += '<DIV CLASS="wchips"><SPAN CLASS="wchip">' + TR('Humidity') + ' ' + Math.round(c.relative_humidity_2m) + '%</SPAN>' +
+      '<SPAN CLASS="wchip">' + TR('Wind') + ' ' + Math.round(c.wind_speed_10m) + ' km/h</SPAN>' +
+      '<SPAN CLASS="wchip">' + TR('Rain') + ' ' + Math.round(d.precipitation_probability_max[0] || 0) + '%</SPAN>' +
       '<SPAN CLASS="wchip">' + Math.round(c.pressure_msl) + ' hPa</SPAN></DIV><DIV CLASS="days">';
     for (var i = 1; i <= 5 && i < d.time.length; i++) {
       var dt = new Date(d.time[i] + 'T12:00:00');

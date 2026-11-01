@@ -1,3 +1,4 @@
+#include "I18n.h"
 #include "Common.h"
 #include "Storage.h"
 #include "Themes.h"
@@ -41,19 +42,19 @@ void drawAboutHelp(uint8_t arrow)
   esp_qrcode_config_t qrcode_config = ESP_QRCODE_CONFIG_DEFAULT();
   qrcode_config.display_func = displayQRCode;
   esp_qrcode_generate(&qrcode_config, MANUAL_URL);
-  spr.drawString("Scan the QR code to read", 130, 70 + 16 * -1, FONT_SMALL);
-  spr.drawString("the User Manual.", 130, 70 + 16 * 0, FONT_SMALL);
-  spr.drawString("Click the encoder button", 130, 70 + 16 * 1, FONT_SMALL);
-  spr.drawString("to continue.", 130, 70 + 16 * 2, FONT_SMALL);
+  spr.drawString(uiText("Scan the QR code to read"), 130, 70 + 16 * -1, FONT_SMALL);
+  spr.drawString(uiText("the User Manual."), 130, 70 + 16 * 0, FONT_SMALL);
+  spr.drawString(uiText("Click the encoder button"), 130, 70 + 16 * 1, FONT_SMALL);
+  spr.drawString(uiText("to continue."), 130, 70 + 16 * 2, FONT_SMALL);
   if(arrow)
   {
-    spr.drawString("Rotate the encoder to see", 130, 70 + 16 * 3, FONT_SMALL);
-    spr.drawString("the next page.", 130, 70 + 16 * 4, FONT_SMALL);
+    spr.drawString(uiText("Rotate the encoder to see"), 130, 70 + 16 * 3, FONT_SMALL);
+    spr.drawString(uiText("the next page."), 130, 70 + 16 * 4, FONT_SMALL);
   }
   else
   {
-    spr.drawString("To see this screen again,", 130, 70 + 16 * 4, FONT_SMALL);
-    spr.drawString("go to Menu->Settings->About.", 130, 70 + 16 * 5, FONT_SMALL);
+    spr.drawString(uiText("To see this screen again,"), 130, 70 + 16 * 4, FONT_SMALL);
+    spr.drawString(uiText("go to Menu->Settings->About."), 130, 70 + 16 * 5, FONT_SMALL);
   }
   spr.pushSprite(0, 0);
 }

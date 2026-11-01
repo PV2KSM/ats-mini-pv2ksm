@@ -19,6 +19,8 @@
 #include "PageConfig.h"
 #include "PageWiFi.h"
 #include "PageUpdate.h"
+#include "PageNews.h"
+#include "News.h"
 #include "PagePatches.h"
 #include "PageControl.h"
 #include "PageLocation.h"
@@ -106,6 +108,7 @@ static void webApiTune(AsyncWebServerRequest *request);
 static void webLocationPage(AsyncWebServerRequest *request, const LocationInfo &shown, const char *message);
 static void webSetLocation(AsyncWebServerRequest *request);
 static void webFinancePage(AsyncWebServerRequest *request, const char *message);
+static void webNewsPage(AsyncWebServerRequest *request, const char *message);
 static bool webApplyRadio();
 
 struct SplashUploadState
@@ -270,6 +273,72 @@ void webInit()
     webLocationPage(request, locationGet(), "");
   });
   server.on("/location", HTTP_POST, webSetLocation);
+
+  // News: country, topics, city, own feed; the Test button runs in the news task
+  server.on("/news", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webNewsPage(request, "");
+  });
+  server.on("/news", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    NewsCfg c;
+    newsGetCfg(&c);
+    auto val = [&](const char *name) -> String { const auto *p = request->getParam(name, true); return p ? p->value() : String(); };
+    c.edition = (uint8_t)val("ed").toInt();
+    strlcpy(c.query, val("q").c_str(), sizeof(c.query));
+    strlcpy(c.url, val("url").c_str(), sizeof(c.url));
+    c.topics = 0;
+    for(int i = 0 ; i < NEWS_TOPICS ; i++)
+    {
+      char n[4];
+      snprintf(n, sizeof(n), "t%d", i);
+      if(request->hasParam(n, true)) c.topics |= (uint16_t)(1u << i);
+    }
+    c.refreshMin = (uint8_t)val("ref").toInt();
+    c.secs = (uint8_t)val("sec").toInt();
+    c.show = (request->hasParam("s1", true) ? 1 : 0) | (request->hasParam("s2", true) ? 2 : 0);
+    const char *error = newsSetCfg(c);
+    webNewsPage(request, error ? error : "Saved. Open News in the radio menu.");
+  });
+  server.on("/api/news/test", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    const auto *p = request->getParam("url", true);
+    newsRequestTest(p ? p->value().c_str() : "");
+    request->send(200, "text/plain", "ok");
+  });
+  server.on("/api/news/test", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    char msg[96], head[128], sum[192];
+    int count = 0;
+    const int st = newsTestResult(msg, sizeof(msg), head, sizeof(head), sum, sizeof(sum), &count);
+    auto esc = [](const char *s) { String o; for( ; *s ; s++) { if(*s == '"' || *s == '\\') { o += '\\'; o += *s; } else if((uint8_t)*s >= 32) o += *s; } return o; };
+    String j = "{\"state\":" + String(st) + ",\"count\":" + String(count) + ",\"msg\":\"" + esc(msg) + "\",\"head\":\"" + esc(head) + "\",\"sum\":\"" + esc(sum) + "\"}";
+    request->send(200, "application/json", j);
+  });
+
+  server.on("/api/news/link", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    const auto *p = request->getParam("i");
+    char *url = (char *)malloc(1001);
+    if(url && p && newsLinkItem(p->value().toInt(), url, 1001)) request->redirect(String(url));
+    else request->send(404, "text/plain", "No address for this item");
+    free(url);
+  });
+  server.on("/api/news/list", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    auto esc = [](const char *s) { String o; for( ; *s ; s++) { if(*s == '"' || *s == '\\') { o += '\\'; o += *s; } else if((uint8_t)*s >= 32) o += *s; } return o; };
+    String j = "[";
+    char head[112], src[28];
+    int len;
+    bool qr;
+    for(int i = 0 ; newsListItem(i, head, sizeof(head), src, sizeof(src), &len, &qr) ; i++)
+    {
+      if(i) j += ",";
+      j += "{\"h\":\"" + esc(head) + "\",\"s\":\"" + esc(src) + "\",\"n\":" + String(len) + ",\"q\":" + String(qr ? 1 : 0) + "}";
+    }
+    j += "]";
+    request->send(200, "application/json", j);
+  });
 
   // Finance: local currency
   server.on("/finance", HTTP_GET, [] (AsyncWebServerRequest *request) {
@@ -990,6 +1059,51 @@ static bool webApplyRadio()
     else if(nav[i] == 'E') handleClick(true);
   }
   return true;
+}
+
+static void webNewsPage(AsyncWebServerRequest *request, const char *message)
+{
+  NewsCfg c;
+  newsGetCfg(&c);
+  const String msg(message), query(c.query), url(c.url);
+  request->send(200, "text/html", webPage(pageNews, pageNewsTitle, {
+    {"title", pageNewsTitle}, {"message", msg}, {"query", query}, {"url", url},
+    {"sum", (c.show & 1) ? " checked" : ""}, {"src", (c.show & 2) ? " checked" : ""}
+  }, {
+    {"navigation", [](String &out) { webNavigation(out, "/news"); }},
+    {"editions", [&](String &out) {
+      for(int i = 0 ; i < newsEditionCount() ; i++)
+      {
+        out += "<OPTION VALUE=\""; out += i; out += "\"";
+        if(i == c.edition) out += " SELECTED";
+        out += ">"; out += newsEditionName(i); out += "</OPTION>";
+      }
+    }},
+    {"topics", [&](String &out) {
+      for(int i = 0 ; i < NEWS_TOPICS ; i++)
+      {
+        out += "<LABEL><INPUT TYPE=\"checkbox\" NAME=\"t"; out += i; out += "\" VALUE=\"1\"";
+        if(c.topics & (1u << i)) out += " CHECKED";
+        out += "> "; out += newsTopicName(i); out += "</LABEL> ";
+      }
+    }},
+    {"refresh", [&](String &out) {
+      static const uint8_t mins[] = {15, 30, 60};
+      for(uint8_t m : mins)
+      {
+        out += "<OPTION VALUE=\""; out += m; out += "\""; if(m == c.refreshMin) out += " SELECTED";
+        out += ">"; if(m == 60) out += "1 hour"; else { out += m; out += " min"; } out += "</OPTION>";
+      }
+    }},
+    {"seconds", [&](String &out) {
+      static const uint8_t secs[] = {6, 8, 10, 12, 15, 20, 30};
+      for(uint8_t v : secs)
+      {
+        out += "<OPTION VALUE=\""; out += v; out += "\""; if(v == c.secs) out += " SELECTED";
+        out += ">"; out += v; out += " s</OPTION>";
+      }
+    }}
+  }));
 }
 
 static void webFinancePage(AsyncWebServerRequest *request, const char *message)

@@ -5,6 +5,7 @@
 // Header-only and written only against LovyanGFX so the same code runs on the radio and in a PC preview.
 //
 #include <LovyanGFX.hpp>
+#include "I18n.h"
 #ifndef WX_DATUM
 #define WX_DATUM(d) ((lgfx::textdatum_t)(d))
 #endif
@@ -54,6 +55,9 @@ struct CkIn
   const char *wxStatus;                 // Shown when there is no data ("Sem Wi-Fi", ...)
   float t;                              // Seconds, for animations
   uint32_t stby;                        // Other VFO frequency in Hz (737 style layout)
+  uint8_t squelch;                      // Squelch threshold (0 = off)
+  bool sqlSnr;                          // Squelch works on SNR instead of RSSI
+  bool muted;                           // Main audio mute
 };
 
 static inline uint16_t ckMix(uint16_t a, uint16_t b, int k256)   // RGB565 blend: a + (b-a)*k/256
@@ -91,13 +95,13 @@ static inline const char *ckWxShort(int code)
 {
   switch(wxKind(code))
   {
-    case WX_CLEAR:  return code == 1 ? "QUASE LIMPO" : "CEU LIMPO";
-    case WX_PARTLY: return "P.NUBLADO";
-    case WX_CLOUDY: return "NUBLADO";
-    case WX_FOG:    return "NEBLINA";
-    case WX_RAIN:   return (code >= 80 || code == 65 || code == 67) ? "PANCADAS" : "CHUVA";
-    case WX_SNOW:   return "NEVE";
-    default:        return "TROVOADA";
+    case WX_CLEAR:  return uiText(code == 1 ? "MOSTLY CLEAR" : "CLEAR SKY");
+    case WX_PARTLY: return uiText("PARTLY CLOUDY");
+    case WX_CLOUDY: return uiText("OVERCAST");
+    case WX_FOG:    return uiText("FOG");
+    case WX_RAIN:   return (code >= 80 || code == 65 || code == 67) ? uiText("SHOWERS") : uiText("RAIN");
+    case WX_SNOW:   return uiText("SNOW");
+    default:        return uiText("STORM");
   }
 }
 
@@ -110,6 +114,22 @@ static void ckText(G &g, const lgfx::GFXfont &f, const char *s, int x, int y, ui
   g.drawString(s, x, y);
 }
 
+// Station / long name inside a fixed width: drawn as is when it fits (datum 0 = left, 1 = centred), otherwise scrolled
+// (marquee) so it never runs over the neighbouring elements. y is the top of the text.
+template<class G>
+static void ckNameFit(G &g, const lgfx::GFXfont &f, const char *s, int x, int y, int w, uint16_t col, int datum = 0)
+{
+  if(w < 8 || !s || !*s) return;
+  g.setFont(&f);
+  const int tw = g.textWidth(s), fh = g.fontHeight();
+  if(tw <= w) { ckText(g, f, s, datum == 1 ? x + w / 2 : x, y, col, datum); return; }
+  const int gap = 28, off = (int)((lgfx::millis() / 40) % (uint32_t)(tw + gap));
+  g.setClipRect(x, y - 1, w, fh + 2);
+  ckText(g, f, s, x - off, y, col, 0);
+  ckText(g, f, s, x - off + tw + gap, y, col, 0);
+  g.clearClipRect();
+}
+
 // Left card: animated weather, or a muted placeholder while there is no data
 template<class G>
 static void ckWeatherCard(G &g, const CkIn &in, const CkColors &c, int x, int y, int w, int h)
@@ -118,11 +138,11 @@ static void ckWeatherCard(G &g, const CkIn &in, const CkColors &c, int x, int y,
   if(!in.haveWx || !in.wx.valid)
   {
     g.drawRect(x, y, w, h, c.line);
-    ckText(g, FontB612Reg10, "CLIMA", x + 5, y + 4, c.label);
+    ckText(g, FontB612Reg10, uiText("WEATHER"), x + 5, y + 4, c.label);
     // Idle cloud that keeps drifting so the card does not look frozen
     WxBg bg = wxBackground(WX_CLOUDY, false, h);
     wxIcon(g, WX_CLOUDY, false, x + w / 2, y + 40, 0.8f, in.t, bg);
-    ckText(g, FontB612Reg10, in.wxStatus && in.wxStatus[0] ? in.wxStatus : "BUSCANDO...", x + w / 2, y + 72, c.muted, 1);
+    ckText(g, FontB612Reg10, in.wxStatus && in.wxStatus[0] ? in.wxStatus : uiText("SEARCHING..."), x + w / 2, y + 72, c.muted, 1);
     ckText(g, FontB612Reg10, "ATS-MINI", x + w / 2, y + 88, c.line, 1);
     return;
   }
@@ -138,7 +158,7 @@ static void ckWeatherCard(G &g, const CkIn &in, const CkColors &c, int x, int y,
   g.drawFastHLine(x, y, 6, c.label); g.drawFastVLine(x, y, 6, c.label);
   g.drawFastHLine(x + w - 6, y + h - 1, 6, c.label); g.drawFastVLine(x + w - 1, y + h - 6, 6, c.label);
 
-  ckText(g, FontB612Reg10, in.place && in.place[0] ? in.place : "CLIMA", x + 5, y + 4, c.label);
+  ckText(g, FontB612Reg10, in.place && in.place[0] ? in.place : uiText("WEATHER"), x + 5, y + 4, c.label);
 
   wxIcon(g, kind, day, x + 33, y + 34, 0.7f, in.t, bg);
 
@@ -149,7 +169,7 @@ static void ckWeatherCard(G &g, const CkIn &in, const CkColors &c, int x, int y,
   ckText(g, FontB612Bold12, ckWxShort(d.code), x + 5, y + 62, 0xFFFF);
   snprintf(b, sizeof(b), "MAX%d` MIN%d`", d.days[0].tmax, d.days[0].tmin);
   ckText(g, FontB612Reg10, b, x + 5, y + 75, c.text);
-  snprintf(b, sizeof(b), "UMID%d%% V%d", d.hum, d.wind);
+  snprintf(b, sizeof(b), uiLang == LANG_PT ? "UMID%d%% V%d" : uiLang == LANG_ES ? "HUM%d%% V%d" : "HUM%d%% W%d", d.hum, d.wind);
   ckText(g, FontB612Reg10, b, x + 5, y + 86, c.muted);
 }
 
@@ -270,7 +290,7 @@ static void ckDraw(G &g, const CkIn &in, const CkColors &c, bool leftCard)
   {
     const int cy = 100, cw = 52;
     char vol[8];
-    if(in.volume < 0) snprintf(vol, sizeof(vol), "MUDO"); else snprintf(vol, sizeof(vol), "%d", in.volume);
+    if(in.volume < 0) snprintf(vol, sizeof(vol), "%s", uiText("MUTED")); else snprintf(vol, sizeof(vol), "%d", in.volume);
     const char *labels[4] = {"STEP", "BW", in.agcLabel ? in.agcLabel : "AGC", "VOL"};
     const char *vals[4] = {in.step, in.bw, in.agc, vol};
     for(int i = 0 ; i < 4 ; i++)

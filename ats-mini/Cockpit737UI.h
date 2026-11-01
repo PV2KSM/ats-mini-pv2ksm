@@ -70,6 +70,10 @@ static void bxDraw(G &g, const CkIn &in, const CkColors &c, bool /*unused*/, flo
 
   g.pushImage(0, 0, 320, 170, (const lgfx::rgb565_t *)BX_BG);
 
+  // The top-right banner (Wi-Fi, battery) would cover the STANDBY label of the art: repaint it as a shorter label at the left
+  for(int y = 2 ; y < 16 ; y++) g.drawFastHLine(219, y, 59, (uint16_t)BX_BG[y * 320 + 216]);
+  ckText(g, FontB612Bold12, "STBY", 205, 3, amber, 1);
+
   // ---- ACTIVE / STANDBY ----
   auto freqStr = [&](uint32_t f, char *s, size_t n) {
     if(in.mode == 0) snprintf(s, n, "%u.%03u", (unsigned)(f / 1000000), (unsigned)((f % 1000000) / 1000));
@@ -105,7 +109,7 @@ static void bxDraw(G &g, const CkIn &in, const CkColors &c, bool /*unused*/, flo
 
   // ---- Volume / step buttons and knob pointers ----
   char vol[8];
-  if(in.volume < 0) snprintf(vol, sizeof(vol), "MUDO"); else snprintf(vol, sizeof(vol), "%d", in.volume);
+  if(in.volume < 0) snprintf(vol, sizeof(vol), "%s", uiText("MUTED")); else snprintf(vol, sizeof(vol), "%d", in.volume);
   ckText(g, FontB612Bold12, vol, 30, 60, white, 1);
   char st[10];
   snprintf(st, sizeof(st), "%s", in.step ? in.step : "");
@@ -120,7 +124,7 @@ static void bxDraw(G &g, const CkIn &in, const CkColors &c, bool /*unused*/, flo
   }
 
   // ---- Lower unit ----
-  if(in.station && in.station[0]) ckText(g, FontB612Bold12, in.station, 160, 116, white, 1);
+  if(in.station && in.station[0]) ckNameFit(g, FontB612Bold12, in.station, 92, 116, 136, white, 1);
   const int segs = 18, sp = 5;
   auto bargraph = [&](int x0, float v, bool isS)
   {

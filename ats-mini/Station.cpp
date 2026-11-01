@@ -1,3 +1,4 @@
+#include "I18n.h"
 #include "Common.h"
 #include "Themes.h"
 #include "Utils.h"
@@ -193,7 +194,7 @@ static bool showRdsProgramType(uint8_t pgmType, bool useRBDS = false)
     : (pgmType<ITEM_COUNT(rdsProgramTypes)? rdsProgramTypes[pgmType] : 0);
 
   // Filter out invalid or non-existant RDS program types
-  return(showProgramInfo(text? text:""));
+  return(showProgramInfo(text? uiText(text):""));
 }
 
 static bool showRdsPiCode(uint16_t rdsPiCode)

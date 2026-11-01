@@ -187,7 +187,7 @@ static void csDraw(G &g, const CkIn &in, const CkColors &c, float sV, float nV, 
     }
   }
   ckText(g, FontB612Reg10, "USE", dx + 10, dy + 59, 0xC618);
-  if(in.station && in.station[0]) ckText(g, FontB612Bold12, in.station, dx + 62, dy + 57, 0xFD80);
+  if(in.station && in.station[0]) ckNameFit(g, FontB612Bold12, in.station, dx + 62, dy + 57, dw - 108, 0xFD80);
   // small RSSI / SNR readouts
   char b[8];
   snprintf(b, sizeof(b), "%02d", in.rssi > 99 ? 99 : in.rssi);

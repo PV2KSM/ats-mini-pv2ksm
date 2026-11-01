@@ -1,11 +1,13 @@
 //
 // PV2KSM new main screens (Neo Analog, Neo S-Meter, Vintage, Clock, Memories, Minimal, VFD, LCD, Neon). Drawing lives in NewUI.h (shared with the PC preview).
 //
+#include "I18n.h"
 #include "Common.h"
 #include "Themes.h"
 #include "Utils.h"
 #include "Menu.h"
 #include "Draw.h"
+#include "StatusChips.h"
 #include "Weather.h"
 #include "Memories.h"
 #include "NewUI.h"
@@ -63,6 +65,9 @@ void drawLayoutNew()
   in.rssi = rssi;
   in.snr = snr;
   in.stereo = (currentMode == FM) && (fmStereoIdx != FM_STEREO_MONO) && rx.getCurrentPilot();
+  in.squelch = currentSquelch[currentMode] & 0x7f;
+  in.sqlSnr = (currentSquelch[currentMode] & 0x80) != 0;
+  in.muted = muteOn(MUTE_MAIN);
   in.step = getCurrentStep()->desc;
   in.bw = getCurrentBandwidth()->desc;
   static char agcText[8];
@@ -82,7 +87,7 @@ void drawLayoutNew()
 
   static char wxStatus[24];
   in.haveWx = weatherGetSnapshot(&in.wx, wxStatus, sizeof(wxStatus)) && in.wx.valid;
-  in.wxStatus = in.haveWx ? "" : "Open Weather";
+  in.wxStatus = in.haveWx ? "" : uiText("Open Weather");
 
   // Smoothed needles (fast attack, slower release)
   static float sN = 0, nN = 0;
@@ -119,6 +124,13 @@ void drawLayoutNew()
 
   const bool idle = (currentCmd == CMD_NONE || currentCmd == CMD_FREQ);
 
+  if(currentCmd != CMD_SCAN)
+  {
+    static const uint8_t scSty[] = {SC_NANALOG, SC_NSMETER, SC_VINTAGE, SC_CLOCK, SC_MEMORIES, SC_MINIMAL, SC_VFD, SC_LCD, SC_NEON};
+    const int si = uiLayoutIdx - UI_NANALOG;
+    if(si >= 0 && si < 9) scDraw(spr, in, scSty[si], p.acc, p.txt, p.bg1);
+  }
+
   drawSaveIndicator(190, 0);
   drawBleIndicator(204, 0);
   bool has_voltage = drawBattery(BATT_OFFSET_X, BATT_OFFSET_Y);
@@ -143,15 +155,15 @@ void drawLayoutNew()
       uint32_t hz = (pos & 1) ? 5 : 1;
       for(int i = 0 ; i < pos / 2 + (fm ? 4 : 0) ; i++) hz *= 10;
       char b[24];
-      if(hz >= 1000000) snprintf(b, sizeof(b), "Digit: %u MHz", (unsigned)(hz / 1000000));
-      else if(hz >= 1000) snprintf(b, sizeof(b), "Digit: %u kHz", (unsigned)(hz / 1000));
-      else snprintf(b, sizeof(b), "Digit: %u Hz", (unsigned)hz);
+      if(hz >= 1000000) snprintf(b, sizeof(b), (uiLang == LANG_EN ? "Digit: %u MHz" : "Digito: %u MHz"), (unsigned)(hz / 1000000));
+      else if(hz >= 1000) snprintf(b, sizeof(b), (uiLang == LANG_EN ? "Digit: %u kHz" : "Digito: %u kHz"), (unsigned)(hz / 1000));
+      else snprintf(b, sizeof(b), (uiLang == LANG_EN ? "Digit: %u Hz" : "Digito: %u Hz"), (unsigned)hz);
       nu::tag(spr, p, FontB612Bold12, b, 160, 163, p.txt, nu::D_BC, pushAndRotate);
     }
   }
   if(idle)
   {
-    if(muteOn(MUTE_MAIN)) nu::tag(spr, p, FontB612Bold12, "MUTED", 5, 163, p.bad, nu::D_BL);
+    if(muteOn(MUTE_MAIN)) nu::tag(spr, p, FontB612Bold12, uiText("MUTED"), 5, 163, p.bad, nu::D_BL);
     else if(muteOn(MUTE_SQUELCH)) nu::tag(spr, p, FontB612Bold12, "SQ", 5, 163, p.bad, nu::D_BL);
   }
 

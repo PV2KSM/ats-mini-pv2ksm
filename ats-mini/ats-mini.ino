@@ -7,6 +7,7 @@
 #include "Rotary.h"
 #include "Button.h"
 #include "Menu.h"
+#include "News.h"
 #include "Memories.h"
 #include "Patches.h"
 #include "Draw.h"
@@ -305,6 +306,7 @@ void setup()
   mapBegin();
   weatherBegin();
   financeBegin();
+  newsBegin();
   radarBegin();
 
   // Start Bluetooth LE, if necessary
@@ -836,7 +838,7 @@ void loop()
   // Disable commands control
   if((currentTime - elapsedCommand) > ELAPSED_COMMAND)
   {
-    if(currentCmd != CMD_NONE && currentCmd != CMD_SEEK && currentCmd != CMD_SCAN && currentCmd != CMD_MEMORY && currentCmd != CMD_FLIGHTS && currentCmd != CMD_WEATHER && currentCmd != CMD_FINANCE && currentCmd != CMD_NETWORK)
+    if(currentCmd != CMD_NONE && currentCmd != CMD_SEEK && currentCmd != CMD_SCAN && currentCmd != CMD_MEMORY && currentCmd != CMD_FLIGHTS && currentCmd != CMD_WEATHER && currentCmd != CMD_FINANCE && currentCmd != CMD_NEWS && currentCmd != CMD_NETWORK)
     {
       currentCmd = CMD_NONE;
       needRedraw = true;
@@ -883,6 +885,7 @@ void loop()
   needRedraw |= flightsTick();
   needRedraw |= weatherTick();
   needRedraw |= financeTick();
+  needRedraw |= newsTick();
   needRedraw |= netStatusTick();
   backupTick();
   needRedraw |= newTick();

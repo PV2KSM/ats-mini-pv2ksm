@@ -1,3 +1,4 @@
+#include "I18n.h"
 #include "Common.h"
 #include "Storage.h"
 #include "Utils.h"
@@ -298,7 +299,7 @@ void netInit(uint8_t netMode)
     wifiStartScan();
   }
   else
-    statusShow("Use Access Point " RECEIVER_NAME, "IP : 10.1.1.1 or atsmini.local");
+    statusShow((uiLang == LANG_PT ? "Use o ponto de acesso " RECEIVER_NAME : uiLang == LANG_ES ? "Use el punto de acceso " RECEIVER_NAME : "Use Access Point " RECEIVER_NAME), (uiLang == LANG_PT ? "IP : 10.1.1.1 ou atsmini.local" : uiLang == LANG_ES ? "IP : 10.1.1.1 o atsmini.local" : "IP : 10.1.1.1 or atsmini.local"));
 }
 
 bool ntpIsAvailable()
@@ -424,8 +425,8 @@ static void wifiConnected(uint32_t now)
   if(activeNetMode == NET_SYNC)
     statusShow("Synchronizing time...", nullptr, 0);
   else
-    statusShow(("Connected to WiFi network (" + WiFi.SSID() + ")").c_str(),
-               ("IP : " + WiFi.localIP().toString() + " or atsmini.local").c_str());
+    statusShow((String(uiLang == LANG_PT ? "Conectado ao Wi-Fi (" : uiLang == LANG_ES ? "Conectado al Wi-Fi (" : "Connected to WiFi network (") + WiFi.SSID() + ")").c_str(),
+               ("IP : " + WiFi.localIP().toString() + (uiLang == LANG_PT ? " ou atsmini.local" : uiLang == LANG_ES ? " o atsmini.local" : " or atsmini.local")).c_str());
 }
 
 static void wifiConnectionFailed()
@@ -440,7 +441,7 @@ static void wifiConnectionFailed()
     WiFi.scanDelete();
   }
   if(activeNetMode == NET_AP_CONNECT)
-    statusShow("No WiFi connection", "Use Access Point " RECEIVER_NAME " at 10.1.1.1");
+    statusShow("No WiFi connection", (uiLang == LANG_PT ? "Use o ponto de acesso " RECEIVER_NAME " em 10.1.1.1" : uiLang == LANG_ES ? "Use el punto de acceso " RECEIVER_NAME " en 10.1.1.1" : "Use Access Point " RECEIVER_NAME " at 10.1.1.1"));
   else
     statusShow("No WiFi connection");
 }

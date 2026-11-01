@@ -7,6 +7,7 @@
 #include "Utils.h"
 #include "Menu.h"
 #include "Draw.h"
+#include "StatusChips.h"
 #include "Weather.h"
 #include "Location.h"
 #include "Cockpit737UI.h"
@@ -42,6 +43,9 @@ void drawLayoutCockpit()
   in.rssi = rssi;
   in.snr = snr;
   in.stereo = (currentMode == FM) && (fmStereoIdx != FM_STEREO_MONO) && rx.getCurrentPilot();
+  in.squelch = currentSquelch[currentMode] & 0x7f;
+  in.sqlSnr = (currentSquelch[currentMode] & 0x80) != 0;
+  in.muted = muteOn(MUTE_MAIN);
   in.step = getCurrentStep()->desc;
   in.bw = getCurrentBandwidth()->desc;
   static char agcText[8];
@@ -63,6 +67,7 @@ void drawLayoutCockpit()
 
   // Status icons (same helpers as the other layouts), placed in the header
   if(currentCmd == CMD_SCAN) drawScanForLayout(in, SCAN_STYLE_COCKPIT);
+  else scDraw(spr, in, SC_COCKPIT, 0, 0, 0);
   drawSaveIndicator(190, 0);
   drawBleIndicator(204, 0);
   bool has_voltage = drawBattery(BATT_OFFSET_X, BATT_OFFSET_Y);

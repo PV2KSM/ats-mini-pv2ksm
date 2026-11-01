@@ -81,6 +81,7 @@ static void webNavigation(String &out, const char *activePage)
     {"Control", "/control"},
     {"Memory", "/memory"},
     {"Location", "/location"},
+    {"News", "/news"},
     {"Finance", "/finance"},
     {"Backup", "/backup"},
     {"Config", "/config"},

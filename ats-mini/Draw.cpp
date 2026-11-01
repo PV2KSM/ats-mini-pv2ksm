@@ -1,3 +1,4 @@
+#include "I18n.h"
 #include "Common.h"
 #include "Themes.h"
 #include "Storage.h"
@@ -8,6 +9,7 @@
 #include "Flights.h"
 #include "Weather.h"
 #include "Finance.h"
+#include "News.h"
 #include "NetStatus.h"
 #include "NewUI.h"
 
@@ -129,7 +131,7 @@ void drawZoomedMenu(const char *text, bool force)
   spr.fillSmoothRoundRect(RDS_OFFSET_X - 72 + 1, RDS_OFFSET_Y - 3 + 1, 152, 26, 4, TH.menu_bg);
   spr.setTextDatum(TC_DATUM);
   spr.setTextColor(TH.menu_item);
-  spr.drawString(text, RDS_OFFSET_X + 5, RDS_OFFSET_Y, FONT_LARGE);
+  spr.drawString(uiText(text), RDS_OFFSET_X + 5, RDS_OFFSET_Y, FONT_LARGE);
   spr.drawRoundRect(RDS_OFFSET_X - 72, RDS_OFFSET_Y - 3, 154, 28, 4, TH.menu_border);
 }
 
@@ -487,6 +489,7 @@ void drawScreen()
   if(currentCmd == CMD_WEATHER) { weatherDraw(spr); return; }
   if(currentCmd == CMD_NETWORK) { netStatusDraw(spr); spr.pushSprite(0, 0); return; }
   if(currentCmd == CMD_FINANCE) { financeDraw(spr); spr.pushSprite(0, 0); return; }
+  if(currentCmd == CMD_NEWS) { newsDraw(spr); spr.pushSprite(0, 0); return; }
 
   // Clear screen buffer
   spr.fillSprite(TH.bg);

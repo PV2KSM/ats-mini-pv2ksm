@@ -166,8 +166,8 @@ namespace nu
     g.fillRect(52, 156, 8, 3, snr); text(g, FontB612Reg10, "SNR", 63, 158, mut, D_ML);
     if(best > 0)
     {
-      if(in.mode == 0) snprintf(b, sizeof(b), "Peak %u.%02u MHz", (unsigned)(bestF / 1000000), (unsigned)((bestF % 1000000) / 10000));
-      else snprintf(b, sizeof(b), "Peak %u.%03u kHz", (unsigned)(bestF / 1000), (unsigned)(bestF % 1000));
+      if(in.mode == 0) snprintf(b, sizeof(b), uiLang == LANG_PT ? "Pico %u.%02u MHz" : uiLang == LANG_ES ? "Pico %u.%02u MHz" : "Peak %u.%02u MHz", (unsigned)(bestF / 1000000), (unsigned)((bestF % 1000000) / 10000));
+      else snprintf(b, sizeof(b), uiLang == LANG_PT ? "Pico %u.%03u kHz" : uiLang == LANG_ES ? "Pico %u.%03u kHz" : "Peak %u.%03u kHz", (unsigned)(bestF / 1000), (unsigned)(bestF % 1000));
       text(g, FontB612Reg10, b, 312, 158, mut, D_MR);
     }
   }

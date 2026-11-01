@@ -1,4 +1,5 @@
 #include "I18n.h"
+#include <string.h>
 
 uint8_t uiLang = LANG_EN;   // Default on a fresh install
 const char *const uiLangDesc[] = { "Portugues", "English", "Espanol" };   // Order matches LANG_PT/EN/ES
@@ -102,6 +103,21 @@ static const char *const T[T_COUNT][LANG_TOTAL] =
   /* T_MAP_PNG          */ {"Mapa: PNG invalido",       "Map: bad PNG",             "Mapa: PNG invalido"},
   /* T_MAP_TILE_N       */ {"Mapa: tile %d/%d",         "Map: tile %d/%d",          "Mapa: tile %d/%d"},
   /* T_MAP_PARTIAL      */ {"Mapa parcial",             "Partial map",              "Mapa parcial"},
+  /* T_NEWS_TITLE       */ {"NOTICIAS",                 "NEWS",                     "NOTICIAS"},
+  /* T_NEWS_SEARCHING   */ {"Buscando noticias...",     "Fetching news...",         "Buscando noticias..."},
+  /* T_NEWS_NONE        */ {"Sem noticias agora",       "No news right now",        "Sin noticias ahora"},
+  /* T_NEWS_EMPTY       */ {"Feed sem noticias",        "Feed has no news",         "Feed sin noticias"},
+  /* T_NEWS_NO_FEED     */ {"Esse site nao tem feed",   "No news feed found there", "Ese sitio no tiene feed"},
+  /* T_NEWS_FOUND       */ {"%d noticias",              "%d news",                  "%d noticias"},
+  /* T_NEWS_AGO         */ {"ha %s",                    "%s ago",                   "hace %s"},
+  /* T_NEWS_PAUSED      */ {"pausado",                  "paused",                   "en pausa"},
+  /* T_NEWS_RETRY       */ {"Tentando de novo em %d min", "Retrying in %d min",     "Reintentando en %d min"},
+  /* T_NEWS_SCAN1       */ {"Escaneie para",            "Scan to",                  "Escanee para"},
+  /* T_NEWS_SCAN2       */ {"ver a noticia",            "read the news",            "ver la noticia"},
+  /* T_NEWS_BACK        */ {"Clique: voltar",           "Click: back",              "Clic: volver"},
+  /* T_NEWS_WEB1        */ {"Links tambem na",          "Links also on",            "Enlaces tambien en"},
+  /* T_NEWS_WEB2        */ {"pagina web do radio",      "the radio web page",       "la pagina web"},
+  /* T_NEWS_LINKSTAT    */ {" | links: %d ok, media %d, max %d; %d longos (>%d); %d sem", " | links: %d ok, avg %d, max %d; %d too long (>%d); %d none", " | enlaces: %d ok, media %d, max %d; %d largos (>%d); %d sin"},
 };
 
 static_assert(sizeof(T) / sizeof(T[0]) == T_COUNT, "I18n table and TrId enum are out of step");
@@ -165,4 +181,91 @@ const char *trDay(int dow)
     {"Qui", "Thu", "Jue"}, {"Sex", "Fri", "Vie"}, {"Sab", "Sat", "Sab"},
   };
   return (dow >= 0 && dow < 7) ? D[dow][lang()] : "---";
+}
+
+//
+// Fixed English texts of the original firmware (menu values, pop-ups, status lines, RDS types),
+// translated by exact match. ASCII only. Anything not in the table is shown unchanged.
+//
+struct UiTr { const char *en, *pt, *es; };
+static const UiTr UT[] =
+{
+  // Option values
+  {"Off","Desligado","Apagado"}, {"On","Ligado","Activo"}, {"OFF","DESLIG.","APAGADO"},
+  {"Ad hoc","Ad hoc","Ad hoc"}, {"Unpair All","Desparear","Desvincular"},
+  {"AP Only","So AP","Solo AP"}, {"AP+Connect","AP+Conectar","AP+Conectar"}, {"Connect","Conectar","Conectar"}, {"Sync Only","So sincron.","Solo sincron."},
+  {"Locked","Travado","Bloqueado"}, {"Unlocked","Destravado","Desbloqueado"}, {"CPU Sleep","Sono CPU","Reposo CPU"},
+  {"Check","Verificar","Comprobar"}, {"Update","Atualizar","Actualizar"}, {"Hold","Manter","Mantener"},
+  {"Same","Igual","Igual"}, {"Amber","Ambar","Ambar"}, {"Green","Verde","Verde"}, {"Cyan","Ciano","Cian"}, {"Blue","Azul","Azul"},
+  {"Red","Vermelho","Rojo"}, {"White","Branco","Blanco"}, {"Original","Original","Original"}, {"Carousel","Carrossel","Carrusel"}, {"Grid","Grade","Cuadricula"},
+  {"Graphite","Grafite","Grafito"}, {"Black","Preto","Negro"}, {"Navy","Marinho","Marino"}, {"Wine","Vinho","Vino"}, {"Forest","Floresta","Bosque"},
+  {"Accent","Destaque","Acento"}, {"Cream","Creme","Crema"}, {"Orange","Laranja","Naranja"}, {"Yellow","Amarelo","Amarillo"}, {"Mint","Menta","Menta"}, {"Sky","Celeste","Celeste"}, {"Pink","Rosa","Rosa"},
+  {"Default","Padrao","Predeterm."}, {"Night","Noite","Noche"}, {"Space","Espaco","Espacio"}, {"Light","Claro","Claro"}, {"Dark","Escuro","Oscuro"}, {"Phosphor","Fosforo","Fosforo"},
+  {"Minimal","Minimo","Minimo"}, {"Clock","Relogio","Reloj"}, {"Memories","Memorias","Memorias"},
+  // Pop-ups and side panel
+  {"Max Attn","Atenuac. max","Atenuac. max"}, {"Max Gain","Ganho max","Ganancia max"}, {"min","min","min"}, {"sec","seg","seg"},
+  {"Step:","Passo:","Paso:"}, {"BW:","LB:","AB:"}, {"Vol:","Vol:","Vol:"}, {"Muted","Mudo","Silencio"}, {"Time:","Hora:","Hora:"},
+  {"Scanning...","Varrendo...","Escaneando..."},
+  // Status lines
+  {"Patch request busy","Pedido de patch ocupado","Solicitud de parche ocupada"}, {"Try again when finished","Tente de novo ao terminar","Reintente al terminar"},
+  {"Loading SSB","Carregando SSB","Cargando SSB"}, {"Loading AM","Carregando AM","Cargando AM"},
+  {"Patch unavailable","Patch indisponivel","Parche no disponible"}, {"Using Default","Usando o padrao","Usando el predeterminado"},
+  {"Time synchronized","Hora sincronizada","Hora sincronizada"}, {"NTP sync failed","Falha ao sincronizar NTP","Fallo al sincronizar NTP"},
+  {"Connecting to WiFi network...","Conectando ao Wi-Fi...","Conectando al Wi-Fi..."}, {"Synchronizing time...","Sincronizando a hora...","Sincronizando la hora..."},
+  {"No WiFi connection","Sem conexao Wi-Fi","Sin conexion Wi-Fi"}, {"Connecting BLE HID","Conectando BLE HID","Conectando BLE HID"},
+  {"Loading EiBi Schedule","Carregando grade EiBi","Cargando horarios EiBi"}, {"Connecting...","Conectando...","Conectando..."},
+  {"Failed connecting to EiBi!","Falha ao conectar ao EiBi!","Error al conectar con EiBi!"}, {"Failed opening local storage!","Falha ao abrir o armazenamento!","Error al abrir el almacenamiento!"},
+  {"CANCELED!","CANCELADO!","CANCELADO!"}, {"DONE!","PRONTO!","LISTO!"},
+  {"Updating Firmware","Atualizando firmware","Actualizando firmware"}, {"Open Weather","Abrir Clima","Abrir Clima"},
+  {"Checking for updates...","Verificando atualizacoes...","Buscando actualizaciones..."}, {"Update requested...","Atualizacao solicitada...","Actualizacion solicitada..."},
+  {"Connecting to GitHub...","Conectando ao GitHub...","Conectando con GitHub..."}, {"DONE! Rebooting...","PRONTO! Reiniciando...","LISTO! Reiniciando..."},
+  {"Already up to date.","Ja esta atualizado.","Ya esta actualizado."}, {"Update failed.","Falha na atualizacao.","Fallo la actualizacion."},
+  {"Update canceled.","Atualizacao cancelada.","Actualizacion cancelada."}, {"Connect Wi-Fi first.","Conecte o Wi-Fi antes.","Conecte el Wi-Fi antes."},
+  {"Set the clock before updating.","Acerte o relogio antes.","Ajuste el reloj antes."}, {"Mod: use Manual upload.","Mod: use envio manual.","Mod: use carga manual."},
+  {"Unable to connect to GitHub.","Sem conexao com o GitHub.","Sin conexion con GitHub."}, {"Unable to find the latest release.","Versao nova nao encontrada.","Version nueva no encontrada."},
+  {"Firmware download failed.","Falha ao baixar o firmware.","Error al descargar firmware."}, {"Firmware download interrupted.","Download interrompido.","Descarga interrumpida."},
+  {"Firmware download timed out.","Tempo esgotado no download.","Tiempo agotado en la descarga."}, {"Not enough PSRAM for update.","PSRAM insuficiente.","PSRAM insuficiente."},
+  {"Release has no matching OTA file.","Versao sem arquivo OTA igual.","Version sin archivo OTA igual."}, {"Unexpected release version.","Versao inesperada.","Version inesperada."},
+  {"Unable to start update.","Nao foi possivel iniciar.","No se pudo iniciar."}, {"Upload interrupted.","Envio interrompido.","Envio interrumpido."},
+  {"Firmware is incomplete.","Firmware incompleto.","Firmware incompleto."}, {"Missing OTA metadata; use USB.","Sem metadados OTA; use USB.","Sin metadatos OTA; use USB."},
+  {"Incompatible firmware; use USB.","Firmware incompativel; use USB.","Firmware incompatible; use USB."}, {"Wrong firmware variant; select the matching image.","Variante errada do firmware.","Variante de firmware incorrecta."},
+  {"Firmware exceeds the declared size.","Firmware maior que o declarado.","Firmware mayor que lo declarado."}, {"Invalid firmware download size.","Tamanho invalido do download.","Tamano de descarga no valido."},
+  {"Unable to start firmware download.","Nao foi possivel baixar.","No se pudo descargar."},
+  // Cockpit weather card, dates, mute tag
+  {"CLEAR SKY","CEU LIMPO","DESPEJADO"}, {"MOSTLY CLEAR","QUASE LIMPO","POCO NUBOSO"}, {"PARTLY CLOUDY","P.NUBLADO","P.NUBOSO"}, {"OVERCAST","NUBLADO","NUBLADO"},
+  {"FOG","NEBLINA","NIEBLA"}, {"SHOWERS","PANCADAS","CHUBASCOS"}, {"RAIN","CHUVA","LLUVIA"}, {"SNOW","NEVE","NIEVE"}, {"STORM","TROVOADA","TORMENTA"},
+  {"WEATHER","CLIMA","CLIMA"}, {"SEARCHING...","BUSCANDO...","BUSCANDO..."}, {"MUTED","MUDO","SILENC."},
+  {"Sunday","Domingo","Domingo"}, {"Monday","Segunda","Lunes"}, {"Tuesday","Terca","Martes"}, {"Wednesday","Quarta","Miercoles"}, {"Thursday","Quinta","Jueves"}, {"Friday","Sexta","Viernes"}, {"Saturday","Sabado","Sabado"},
+  {"Jan","Jan","Ene"}, {"Feb","Fev","Feb"}, {"Apr","Abr","Abr"}, {"May","Mai","May"}, {"Aug","Ago","Ago"}, {"Sep","Set","Sep"}, {"Oct","Out","Oct"}, {"Dec","Dez","Dic"},
+  {"No sweep yet","Sem varredura ainda","Aun sin escaneo"},
+  // About screen
+  {"Scan the QR code to read","Leia o QR code para ver","Escanee el codigo QR para leer"}, {"the User Manual.","o Manual do Usuario.","el Manual de Usuario."},
+  {"Click the encoder button","Clique no botao do encoder","Pulse el boton del encoder"}, {"to continue.","para continuar.","para continuar."},
+  {"Rotate the encoder to see","Gire o encoder para ver","Gire el encoder para ver"}, {"the next page.","a proxima pagina.","la pagina siguiente."},
+  {"To see this screen again,","Para ver esta tela de novo,","Para ver esta pantalla otra vez,"}, {"go to Menu->Settings->About.","va em Menu->Config.->Sobre.","vaya a Menu->Ajustes->Acerca de."},
+  // RDS program types (Europe)
+  {"News","Noticias","Noticias"}, {"Current Affairs","Atualidades","Actualidad"}, {"Information","Informacao","Informacion"},
+  {"Sport","Esporte","Deportes"}, {"Education","Educacao","Educacion"}, {"Drama","Teatro","Teatro"}, {"Culture","Cultura","Cultura"},
+  {"Science","Ciencia","Ciencia"}, {"Varied","Variado","Variado"}, {"Pop Music","Musica pop","Musica pop"}, {"Rock Music","Musica rock","Musica rock"},
+  {"Easy Listening","Leve","Ligera"}, {"Light Classical","Classica leve","Clasica ligera"}, {"Serious Classical","Classica","Clasica"}, {"Other Music","Outras musicas","Otras musicas"},
+  {"Weather","Clima","Clima"}, {"Finance","Financas","Finanzas"}, {"Children's Program","Infantil","Infantil"}, {"Social Affairs","Assuntos sociais","Asuntos sociales"},
+  {"Religion","Religiao","Religion"}, {"Phone-In","Participacao","Participacion"}, {"Travel","Viagem","Viajes"}, {"Leisure","Lazer","Ocio"},
+  {"Jazz Music","Jazz","Jazz"}, {"Country Music","Country","Country"}, {"National Music","Musica nacional","Musica nacional"}, {"Oldies Music","Oldies","Oldies"},
+  {"Folk Music","Folclore","Folclore"}, {"Documentary","Documentario","Documental"}, {"TEST","TESTE","PRUEBA"}, {"! ALERT !","! ALERTA !","! ALERTA !"},
+  // RBDS (US)
+  {"Sports","Esportes","Deportes"}, {"Talk","Conversa","Charla"}, {"Classic Rock","Rock classico","Rock clasico"}, {"Adult Hits","Sucessos adultos","Exitos adultos"},
+  {"Soft Rock","Rock suave","Rock suave"}, {"Country","Country","Country"}, {"Oldies","Oldies","Oldies"}, {"Soft Music","Musica suave","Musica suave"},
+  {"Nostalgia","Nostalgia","Nostalgia"}, {"Jazz","Jazz","Jazz"}, {"Classical","Classica","Clasica"}, {"Foreign Language","Idioma estrangeiro","Idioma extranjero"},
+  {"Religious Music","Musica religiosa","Musica religiosa"}, {"Religious Talk","Fala religiosa","Charla religiosa"}, {"Personality","Personalidade","Personalidad"},
+  {"Public","Publico","Publico"}, {"College","Universitaria","Universitaria"}, {"Spanish Talk","Fala espanhol","Charla espanol"}, {"Spanish Music","Musica espanhol","Musica espanol"},
+  {"Hip Hop","Hip Hop","Hip Hop"},
+};
+
+const char *uiText(const char *en)
+{
+  if(!en || uiLang == LANG_EN || !en[0]) return en;
+  const int l = uiLang == LANG_ES ? 2 : 1;
+  for(unsigned i = 0 ; i < sizeof(UT) / sizeof(UT[0]) ; i++)
+    if(!strcmp(en, UT[i].en)) return l == 2 ? UT[i].es : UT[i].pt;
+  return en;
 }

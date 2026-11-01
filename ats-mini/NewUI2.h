@@ -245,7 +245,7 @@ namespace nu
     text(g, FontB612Bold12, unit, 150 + fw / 2 + 8, 63, cy_, D_ML);
     text(g, FontB612Bold12, in.modeName, 20, 33, cy_, D_ML);
     { char hb[32]; snprintf(hb, sizeof(hb), "STEP %s   VOL %d", in.step ? in.step : "", in.volume); text(g, FontB612Reg10, hb, 20, 79, nuRgb(130, 200, 220), D_ML); }
-    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold12, in.station, 20, 10, 210, mg, n.ms);
+    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold12, in.station, 20, 10, 196, mg, n.ms);
     // data row
     char sv[10], nv[12]; nuSText(sv, sizeof(sv), ckStrength(in.rssi, in.mode == 0)); snprintf(nv, sizeof(nv), "%d dB", in.snr);
     chamfer(g, 6, 96, 150, 66, 9, cy_, pan);

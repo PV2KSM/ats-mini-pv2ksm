@@ -155,17 +155,14 @@ static void anDraw(G &g, const CkIn &in, const CkColors &c, float sNeedle, float
   for(int y = 0 ; y < 170 ; y++) g.fillRect(0, y, 320, 1, ckMix(c.bg, 0xFFFF, y / 8));
   g.drawRect(0, 0, 320, 170, ckMix(c.bg, c.line, 128));
 
-  // Header: mode, stereo flag, RDS station name, digital frequency
+  // Header: mode, stereo flag, digital frequency (the station name sits on top of the S dial)
   const int mw = (int)strlen(in.modeName) * 9 + 14;
   ckText(g, FontB612Bold12, in.modeName, 8, 3, c.label);
-  int nx = mw;
   if(in.stereo)
   {
     g.drawCircle(mw + 2, 10, 4, c.label);
     g.drawCircle(mw + 7, 10, 4, c.label);
-    nx = mw + 18;
   }
-  if(in.station && in.station[0]) ckText(g, FontB612Bold12, in.station, nx, 3, c.text);
 
   const int w = FontB612Bold16.glyph['0' - 32].xAdvance;
   char fs[16];
@@ -200,6 +197,10 @@ static void anDraw(G &g, const CkIn &in, const CkColors &c, float sNeedle, float
   an::dial(g, 80, 72, true, sNeedle, "S", sv, c.freq);
   an::dial(g, 240, 72, false, nNeedle, "SNR", nv, c.freq);
   g.clearClipRect();
+
+  // Station name (RDS / EiBi) on top of the S dial, clipped to the dial
+  if(in.station && in.station[0])
+    ckNameFit(g, FontB612Bold12, in.station, 14, 73, 138, an::ink);
 }
 
 // Needle targets 0..1 from the receiver values

@@ -5,6 +5,7 @@
 // Everything that looks like a glow, glass or shadow is baked into solid colours (no per-pixel read-back), so a frame
 // costs about the same as the old layouts.
 //
+#include "I18n.h"
 #include "CockpitUI.h"
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -366,7 +367,7 @@ namespace nu
     g.setFont(&FontB612Bold16); const int fw = g.textWidth(fs);
     text(g, FontB612Reg10, unit, 44 + fw + 4, 14, p.muted, D_ML);
     { g.setFont(&FontB612Reg10); const int ux = 44 + fw + 4 + g.textWidth(unit) + 10;
-      nameFit(g, p, FontB612Bold12, in.station, ux, 11, 236 - ux, p.txt2, n.ms); }
+      nameFit(g, p, FontB612Bold12, in.station, ux, 11, 216 - ux, p.txt2, n.ms); }
     digitCursorFont(g, FontB612Bold16, 1.0f, in.hl, fs, 44, 11, p.acc, p.needle);
     // Lit tuning scale
     bezel(g, 6, 24, 308, 46, 5);
@@ -424,7 +425,7 @@ namespace nu
     text(g, FontB612Big, fs, fx, 34, p.txt, D_ML);
     g.setTextSize(1.0f);
     text(g, FontB612Reg10, unit, fx + fw + 4, 42, p.acc, D_ML);
-    nameFit(g, p, FontB612Bold12, in.station, 44, 11, 186, p.txt2, n.ms);          // top row, beside the mode chip
+    nameFit(g, p, FontB612Bold12, in.station, 44, 11, 172, p.txt2, n.ms);          // top row, beside the mode chip (ends before the Wi-Fi / battery banner)
     digitCursorFont(g, FontB612Big, 0.88f, in.hl, fs, fx, 34, p.acc, p.needle, -3);
     // glass scale
     g.fillSmoothRoundRect(8, 52, 304, 40, 6, nuRgb(18, 17, 16));
@@ -515,7 +516,7 @@ namespace nu
     g.fillSmoothRoundRect(156, 50, 8, 8, 2, p.acc); g.fillSmoothRoundRect(156, 68, 8, 8, 2, p.acc);
     if(n.month >= 1 && n.month <= 12)
     {
-      char d[40]; snprintf(d, sizeof(d), "%s  %d %s", wdayName[n.wday % 7], n.day, monName[n.month - 1]);
+      char d[40]; snprintf(d, sizeof(d), "%s  %d %s", uiText(wdayName[n.wday % 7]), n.day, uiText(monName[n.month - 1]));
       text(g, FontB612Bold12, d, 160, 98, p.txt2, D_MC);
     }
     card(g, 8, 122, 144, 40, 8, p);
@@ -547,7 +548,7 @@ namespace nu
     text(g, FontB612Big, fs, 160 - fw / 2, 40, p.txt, D_ML);
     digitCursorFont(g, FontB612Big, 1.0f, in.hl, fs, 160 - fw / 2, 40, p.acc, p.needle, -3);
     text(g, FontB612Reg10, unit, 160 + fw / 2 + 4, 48, p.acc, D_ML);
-    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold12, in.station, 64, 11, 170, p.txt2, n.ms);
+    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold12, in.station, 64, 11, 152, p.txt2, n.ms);
     const int y = 104, x0 = 14, x1 = 306;
     const double lo = in.minFreq, hi = in.maxFreq > in.minFreq ? in.maxFreq : in.minFreq + 1;
     g.fillSmoothRoundRect(x0, y - 1, x1 - x0, 3, 1, ckMix(p.bg1, 0xFFFF, 60));
@@ -607,7 +608,7 @@ namespace nu
     const double lo = n.wfLo, hi = n.wfHi > n.wfLo ? n.wfHi : n.wfLo + 1;
     if(!n.wfHave || !n.wf)
     {
-      text(g, FontB612Bold12, "No sweep yet", 160, 92, p.txt2, D_MC);
+      text(g, FontB612Bold12, uiText("No sweep yet"), 160, 92, p.txt2, D_MC);
       text(g, FontB612Reg10, "Menu > Scan", 160, 110, p.muted, D_MC);
     }
     else
@@ -653,6 +654,7 @@ namespace nu
       "Zoom Menu", "Scroll Dir.", "RDS", "FM Stereo", "FM Region", "Calibration", "DSP Patches", "Load EiBi", "Update FW", "USB Port", "TCP Port", "Bluetooth", "Wi-Fi",
       "Language", "Accent", "Text color", "Background", "Menu color", "Menu style", "About"};
     if(!strcmp(n, "Visual")) return 24;   // palette icon (same as Theme)
+    if(!strcmp(n, "News")) return 46;   // newspaper
     for(unsigned i = 0 ; i < sizeof(names) / sizeof(names[0]) ; i++) if(!strcmp(n, names[i])) return (int)i;
     return 17;   // gear
   }
@@ -778,6 +780,12 @@ namespace nu
         break;
       case 44: // Menu style: grid
         for(int i = 0 ; i < 2 ; i++) for(int j = 0 ; j < 2 ; j++) g.fillRoundRect((int)(cx - s + i * s * 1.1f), (int)(cy - s + j * s * 1.1f), (int)(s * 0.9f), (int)(s * 0.9f), 2, c);
+        break;
+      case 46: // News: newspaper (headline block, text lines)
+        rrect(g, (int)(cx - s), (int)(cy - s * 0.8f), (int)(2 * s), (int)(1.6f * s), 3, c, th); rrect(g, (int)(cx - s) + 1, (int)(cy - s * 0.8f) + 1, (int)(2 * s) - 2, (int)(1.6f * s) - 2, 2, c, th);
+        g.fillRect((int)(cx - s * 0.75f), (int)(cy - s * 0.52f), (int)(s * 0.8f), (int)(s * 0.55f), c);
+        ln(g, cx + s * 0.25f, cy - s * 0.45f, cx + s * 0.75f, cy - s * 0.45f, r * 0.8f, c); ln(g, cx + s * 0.25f, cy - s * 0.15f, cx + s * 0.75f, cy - s * 0.15f, r * 0.8f, c);
+        ln(g, cx - s * 0.75f, cy + s * 0.25f, cx + s * 0.75f, cy + s * 0.25f, r * 0.8f, c); ln(g, cx - s * 0.75f, cy + s * 0.55f, cx + s * 0.4f, cy + s * 0.55f, r * 0.8f, c);
         break;
       case 45: // About: i
         ring(g, (int)cx, (int)cy, (int)s, c, th); ring(g, (int)cx, (int)cy, (int)s - 1, c, th);
@@ -975,7 +983,7 @@ namespace nu
       {"Mode", "Modo", "Modo", 0, 0}, {"Band", "Banda", "Banda", 0, 0}, {"Volume", "Volume", "Volumen", 0, 0}, {"VFO A/B", "VFO A/B", "VFO A/B", 0, 0},
       {"Step", "Passo", "Paso", 0, 0}, {"Seek", "Busca", "Busqueda", 0, 0}, {"Scan", "Varredura", "Escaneo", 0, 0}, {"Memory", "Memoria", "Memoria", 0, 0},
       {"Squelch", "Squelch", "Squelch", 0, 0}, {"Bandwidth", "Largura de banda", "Ancho de banda", "Largura", "Ancho"}, {"AGC/ATTN", "AGC/ATT", "AGC/ATT", 0, 0},
-      {"AVC", "AVC", "AVC", 0, 0}, {"SoftMute", "SoftMute", "SoftMute", 0, 0}, {"Flights", "Voos", "Vuelos", 0, 0}, {"Weather", "Clima", "Clima", 0, 0},
+      {"AVC", "AVC", "AVC", 0, 0}, {"SoftMute", "SoftMute", "SoftMute", 0, 0}, {"Flights", "Voos", "Vuelos", 0, 0}, {"News", "Noticias", "Noticias", 0, 0}, {"Weather", "Clima", "Clima", 0, 0},
       {"Finance", "Financas", "Finanzas", 0, 0}, {"Network", "Rede", "Red", 0, 0},
       {"Brightness", "Brilho", "Brillo", 0, 0}, {"Date/Time", "Data/Hora", "Fecha/Hora", 0, 0}, {"UTC Offset", "Fuso horario", "Huso horario", "Fuso", "Huso"},
       {"Sleep Timer", "Timer de sono", "Temp. de sueno", "Sono", "Sueno"}, {"Sleep Mode", "Modo de sono", "Modo de sueno", "Modo sono", "Modo sueno"},

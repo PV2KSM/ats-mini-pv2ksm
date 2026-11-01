@@ -54,7 +54,8 @@
 #define CMD_NETWORK    0x3A00 // |
 #define CMD_LANG       0x3B00 // |
 #define CMD_NUOPT      0x3C00 // |
-#define CMD_VISUAL     0x3D00 //-+
+#define CMD_VISUAL     0x3D00 // |
+#define CMD_NEWS       0x3E00 //-+
 
 // UI Layouts
 #define UI_DEFAULT  0

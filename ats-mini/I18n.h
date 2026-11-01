@@ -36,11 +36,13 @@ enum TrId : uint8_t
   T_RADAR_LOADING, T_RADAR_ZOOM,
   T_MAP_URL, T_MAP_NET, T_MAP_HTTP, T_MAP_TILE_BAD, T_MAP_NO_WIFI, T_MAP_NO_TIME, T_MAP_NO_MEM,
   T_MAP_PNG, T_MAP_TILE_N, T_MAP_PARTIAL,
+  T_NEWS_TITLE, T_NEWS_SEARCHING, T_NEWS_NONE, T_NEWS_EMPTY, T_NEWS_NO_FEED, T_NEWS_FOUND, T_NEWS_AGO, T_NEWS_PAUSED, T_NEWS_RETRY, T_NEWS_SCAN1, T_NEWS_SCAN2, T_NEWS_BACK, T_NEWS_WEB1, T_NEWS_WEB2, T_NEWS_LINKSTAT,
   T_COUNT
 };
 
 const char *tr(TrId id);               // Text in the current language
 const char *trWx(int wmoCode);         // Weather condition for an Open-Meteo (WMO) code
 const char *trDay(int dow);            // 0 = Sunday ... 6 = Saturday
+const char *uiText(const char *en);    // Fixed English text of the original menus/status lines in the current language (exact match)
 
 #endif // I18N_H

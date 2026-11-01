@@ -4,6 +4,24 @@ The user manual is available at <https://esp32-si4732.github.io/ats-mini/manual.
 
 <!-- towncrier release notes start -->
 
+## PV2KSM r30C (2026-11-01) - News, layout fixes, full language review
+
+### Added
+
+- News screen (menu "News"): headlines from Google News (by country) or a feed of your own, TV-style layout with an animated search, a QR code on a short press to read the article on a phone, and a web page with the list and links. Fetched only while the screen is open.
+
+### Fix
+
+- Station names (including EiBi) scroll inside their field instead of overlapping other items in the Cockpit, Cessna, Analog and new layouts.
+- SQL/MUTE chips and the Cockpit STBY label no longer collide with the Wi-Fi/battery banner.
+- Web Status weather summary follows the language of the page.
+
+### Changed
+
+- Language review (PT/EN/ES): original menu, option values, pop-ups, status lines, About screen, RDS program types, Cockpit weather card, dates, and web page messages.
+
+Not hardware-tested by the author on QSPI and LilyGO; News/QR checked on the OSPI build only.
+
 ## PV2KSM r30B (2026-11-01) - Scan screens, web Control, OpenStreetMap
 
 ### Fix

@@ -8,3 +8,6 @@
 // Same as netFetchText but the caller already holds netLock()
 int netFetchLocked(const char *url, char *out, size_t cap, char *err, size_t errSize, const char *accept = "*/*");
 int netFetchText(const char *url, char *out, size_t cap, char *err, size_t errSize, const char *accept = "*/*");
+
+// Like netFetchText, but a response bigger than the buffer is cut (not an error); gotLen = bytes kept
+int netFetchTextTrunc(const char *url, char *out, size_t cap, char *err, size_t errSize, size_t *gotLen, const char *accept = "*/*");
