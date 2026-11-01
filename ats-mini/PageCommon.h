@@ -64,7 +64,7 @@ static const char pageEnd[] PROGMEM = R"HTML(
   PSRAM: {{psram_used}} KiB used / {{psram_free}} KiB free (at page render)
 </FOOTER>
 <FOOTER CLASS="HEAP">
-  Data: map &copy; OpenStreetMap contributors, &copy; CARTO &middot; weather Open-Meteo.com (CC BY 4.0) &middot;
+  Data: map &copy; OpenStreetMap contributors &middot; weather Open-Meteo.com (CC BY 4.0) &middot;
   rain radar RainViewer &middot; flights adsb.lol &middot; METAR NOAA Aviation Weather Center &middot;
   prices Coinbase and Frankfurter (ECB) &middot; airports OurAirports &middot; font B612 (Airbus, SIL OFL) &middot;
   added features by PV2KSM

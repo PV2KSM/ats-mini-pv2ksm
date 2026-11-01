@@ -19,7 +19,7 @@ Known: the flights service occasionally reported `TLS erro (-1)` on the Services
 ## What's new
 - **r30: languages** — English (default on a fresh install), Portuguese and Spanish for the Flights, Weather, Finance, Network, METAR and rain-radar screens and for the whole web interface. Change it in **Settings → Language** on the radio or **Config → Language** in the browser. Manuals: [EN](docs/pv2ksm/MANUAL-en.md) · [PT](docs/pv2ksm/MANUAL-pt.md) · [ES](docs/pv2ksm/MANUAL-es.md).
 - **UI layouts** (Settings → UI Layout / Theme): **Cockpit** (airliner radio panel, ACTIVE/STANDBY), **Analog** (tuning scale with red pointer + analog S/SNR dials), **Avionics** (GA-radio look, red 7-segment LED).
-- **Flights**: adsb.lol tracker with map background (CARTO/OSM, your own key) and nearby airports.
+- **Flights**: adsb.lol tracker with map background (OpenStreetMap by default, no key needed) and nearby airports.
 - **Weather**: now, next days, next hours, **METAR**, **rain radar** (Open-Meteo, aviationweather.gov, RainViewer). Fetched only while the Weather screen is open.
 - **Finance**: US dollar, **euro** and Bitcoin in your local currency (Coinbase / Frankfurter-ECB).
 - **Web UI**: live radio screen on the *Control* tab, Backup export/import, Location (ICAO or lat/lon), Finance, Status with "you are tuned to" + RDS.
@@ -65,11 +65,11 @@ Images in English, Portuguese and Spanish (simulated renders) are in the manuals
 3. Wait for the reboot; don't power off while writing.
 
 ## Limits & licences
-- Open-Meteo is free for **non-commercial use only**; RainViewer free API is for personal/educational use; adsb.lol, NOAA, CARTO/OSM, Coinbase and Frankfurter keep their own terms. Don't use this firmware in a commercial product without checking them (`AVISOS-DE-TERCEIROS.md`).
+- Open-Meteo is free for **non-commercial use only**; RainViewer free API is for personal/educational use; adsb.lol, NOAA, OpenStreetMap, Coinbase and Frankfurter keep their own terms. Don't use this firmware in a commercial product without checking them (`AVISOS-DE-TERCEIROS.md`).
 - No Wi-Fi credentials or API keys are included in the binaries or source; your map key and Wi-Fi stay in your radio's memory.
 - When reporting a problem, include the **Last reset** line from the Status page and any on-screen message.
 
-Credits: ESP32-SI4732 / ATS-Mini (MIT) · B612 font (SIL OFL 1.1) · LovyanGFX · data: adsb.lol, OpenStreetMap/CARTO, Open-Meteo, NOAA, RainViewer, Coinbase, Frankfurter.
+Credits: ESP32-SI4732 / ATS-Mini (MIT) · B612 font (SIL OFL 1.1) · LovyanGFX · data: adsb.lol, OpenStreetMap, Open-Meteo, NOAA, RainViewer, Coinbase, Frankfurter.
 
 ---
 

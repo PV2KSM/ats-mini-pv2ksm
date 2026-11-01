@@ -573,7 +573,8 @@ void flightsDraw(LGFX_Sprite &spr)
 
   if(haveMap)
   {
-    const char *at = "(c) OSM/CARTO";
+    const uint8_t src = locationMapSource();
+    const char *at = src == MAP_SRC_OSM ? "(c) OpenStreetMap" : "(c) map data";
     w = strlen(at) * 6 + 8;
     chip(spr, MAP_W - 3 - w, 17, w, 12);
     spr.setTextColor(cDim);

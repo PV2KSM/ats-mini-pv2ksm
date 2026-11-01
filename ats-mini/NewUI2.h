@@ -32,18 +32,21 @@ namespace nu
   }
 
   // Frequency in seven segments, right aligned at xr. Returns the left edge.
-  template<class G> static int freq7(G &g, const CkIn &in, int xr, int y, int w, int h, int th, int gap, uint16_t on, uint16_t off)
+  template<class G> static int freq7(G &g, const CkIn &in, int xr, int y, int w, int h, int th, int gap, uint16_t on, uint16_t off, uint16_t cSel = 0)
   {
     char fs[16]; freqStr(in, fs, sizeof(fs));
     const int n = (int)strlen(fs);
     int total = 0;
     for(int i = 0 ; i < n ; i++) total += fs[i] == '.' ? th + gap : w + gap;
     int x = xr - total + gap;
-    for(int i = 0 ; i < n ; i++)
+    int xs[16] = {0}, xe[16] = {0};
+    for(int i = 0 ; i < n && i < 16 ; i++)
     {
-      if(fs[i] == '.') { g.fillRect(x, y + h - th, th, th, on); x += th + gap; }
-      else { digit7(g, x, y, w, h, th, seg7Mask[fs[i] - '0'], on, off); x += w + gap; }
+      xs[i] = x;
+      if(fs[i] == '.') { g.fillRect(x, y + h - th, th, th, on); x += th + gap; xe[i] = x - gap; }
+      else { digit7(g, x, y, w, h, th, seg7Mask[fs[i] - '0'], on, off); x += w + gap; xe[i] = x - gap; }
     }
+    if(cSel) digitCursorSpans(g, (uint8_t)in.hl, fs, xs, xe, y + h + 4, on, cSel);
     return xr - total + gap;
   }
 
@@ -69,11 +72,14 @@ namespace nu
     chip(g, 8, 6, 40, 18, in.modeName, p.acc);
     text(g, FontB612Bold12, in.band ? in.band : "", 56, 15, p.txt2, D_ML);
     char fs[16]; const char *unit = freqStr(in, fs, sizeof(fs));
-    g.setFont(&FontB612Big); g.setTextSize(1.9f); const int fw = g.textWidth(fs);
+    float sc = 1.9f;
+    g.setFont(&FontB612Big); g.setTextSize(sc); int fw = g.textWidth(fs);
+    if(fw > 255) { sc = 1.9f * 255.f / fw; g.setTextSize(sc); fw = g.textWidth(fs); }     // long frequencies (SW/AM) must fit the screen
     text(g, FontB612Big, fs, 160 - fw / 2, 74, p.txt, D_ML);
+    digitCursorFont(g, FontB612Big, sc, in.hl, fs, 160 - fw / 2, 74, p.acc, p.needle, -6);
     g.setTextSize(1.0f);
     text(g, FontB612Bold12, unit, 160 + fw / 2 + 4, 98, p.acc, D_ML);
-    if(in.station && in.station[0]) text(g, FontB612Bold16, in.station, 160, 118, p.txt2, D_MC);
+    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold16, in.station, 20, 118, 280, p.txt2, n.ms, D_MC);
     // signal line: thin track with a glowing head
     const int x0 = 20, x1 = 300, y = 142;
     g.fillSmoothRoundRect(x0, y - 1, x1 - x0, 3, 1, ckMix(p.bg1, 0xFFFF, 40));
@@ -91,7 +97,7 @@ namespace nu
     bgFill(g, p);
     card(g, 6, 24, 206, 76, 10, p);
     chip(g, 14, 31, 40, 18, in.modeName, p.acc);
-    if(in.station && in.station[0]) text(g, FontB612Bold12, in.station, 62, 40, p.txt2, D_ML);
+    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold12, in.station, 62, 40, 148, p.txt2, n.ms);
     char fs[16]; const char *unit = freqStr(in, fs, sizeof(fs));
     text(g, FontB612Big, fs, 14, 78, p.txt, D_ML);
     g.setFont(&FontB612Big); const int fw = g.textWidth(fs);
@@ -147,14 +153,14 @@ namespace nu
     text(g, FontB612Bold12, unit, 160, 120, orange, D_MC);
     // pilot lamps
     text(g, FontB612Bold12, in.modeName, 14, 136, orange, D_ML);
-    if(in.station && in.station[0]) text(g, FontB612Reg10, in.station, 14, 154, orangeDim, D_ML);
+    nameFit(g, p, FontB612Reg10, in.station, 14, 154, 132, orangeDim, n.ms);
     for(int i = 0 ; i < 10 ; i++) { const bool on = (i + 0.5f) / 10 <= n.sN; g.fillSmoothCircle(150 + i * 15, 142, 5, on ? orange : nuRgb(52, 28, 14)); if(on) ringAA(g, 150 + i * 15, 142, 6, ckMix(wood2, orange, 80)); }
     text(g, FontB612Reg10, "SIGNAL", 150, 158, orangeDim, D_ML);
     char nv[12]; snprintf(nv, sizeof(nv), "%d dB", in.snr); text(g, FontB612Bold12, nv, 308, 154, orange, D_MR);
   }
 
   // ---- 4/5. VFD and green LCD (retro): seven segments ---------------------------------------------------------------
-  template<class G> static void layoutSeg(G &g, const NuIn &n, bool vfd)
+  template<class G> static void layoutSeg(G &g, const NuIn &n, bool vfd, const NuPal &p)
   {
     const CkIn &in = n.k;
     const uint16_t bg = vfd ? nuRgb(4, 10, 12) : nuRgb(150, 168, 112), on = vfd ? nuRgb(110, 255, 230) : nuRgb(26, 34, 18);
@@ -168,18 +174,18 @@ namespace nu
     text(g, FontB612Reg10, "STEREO", 110, 14, in.stereo ? on : off, D_ML);
     const bool fm = in.mode == 0;
     const int w = fm ? 40 : 26, h = fm ? 74 : 56, th = fm ? 7 : 5;
-    const int left = freq7(g, in, 266, 28, w, h, th, fm ? 9 : 8, on, off);
+    const int left = freq7(g, in, 266, 28, w, h, th, fm ? 9 : 8, on, off, vfd ? nuRgb(255, 120, 90) : nuRgb(150, 30, 20));
     (void)left;
     text(g, FontB612Bold12, fm ? "MHz" : "kHz", 306, 28 + h - 8, on, D_MR);
-    if(in.station && in.station[0]) text(g, FontB612Bold12, in.station, 16, 28 + h + 12, on, D_ML);
+    nameFit(g, p, FontB612Bold12, in.station, 16, 28 + h + 12, 280, on, n.ms);
     // bars
     text(g, FontB612Reg10, "S", 16, 134, dim, D_ML); segBar(g, 30, 128, 140, 11, 20, n.sN, on, off, vfd ? nuRgb(255, 120, 90) : on);
     text(g, FontB612Reg10, "SNR", 180, 134, dim, D_ML); segBar(g, 206, 128, 100, 11, 14, n.nN, on, off);
     char b[24]; snprintf(b, sizeof(b), "STEP %s", in.step ? in.step : ""); text(g, FontB612Reg10, b, 16, 154, dim, D_ML);
     snprintf(b, sizeof(b), "VOL %d", in.volume); text(g, FontB612Reg10, b, 306, 154, dim, D_MR);
   }
-  template<class G> static void layoutVfd(G &g, const NuIn &n, const NuPal &) { layoutSeg(g, n, true); }
-  template<class G> static void layoutLcd(G &g, const NuIn &n, const NuPal &) { layoutSeg(g, n, false); }
+  template<class G> static void layoutVfd(G &g, const NuIn &n, const NuPal &p) { layoutSeg(g, n, true, p); }
+  template<class G> static void layoutLcd(G &g, const NuIn &n, const NuPal &p) { layoutSeg(g, n, false, p); }
 
   // ---- 6. Ring (futuristic): tuning ring with the frequency in the middle ------------------------------------------------
   template<class G> static void layoutRing(G &g, const NuIn &n, const NuPal &p)
@@ -207,7 +213,7 @@ namespace nu
     g.setFont(&FontB612Big); const int fw = g.textWidth(fs);
     text(g, FontB612Big, fs, cx - fw / 2, cy - 4, p.txt, D_ML);
     text(g, FontB612Bold12, unit, cx, cy + 22, p.acc, D_MC);
-    if(in.station && in.station[0]) text(g, FontB612Reg10, in.station, cx, cy + 36, p.txt2, D_MC);
+    if(in.station && in.station[0]) nameFit(g, p, FontB612Reg10, in.station, cx - 62, cy + 36, 124, p.txt2, n.ms, D_MC);
     chip(g, 8, 8, 40, 18, in.modeName, p.acc);
     char sv[10], nv[12]; nuSText(sv, sizeof(sv), ckStrength(in.rssi, in.mode == 0)); snprintf(nv, sizeof(nv), "%d dB", in.snr);
     text(g, FontB612Reg10, "S", 8, 126, p.muted, D_ML); text(g, FontB612Bold16, sv, 8, 142, p.txt, D_ML);
@@ -224,7 +230,7 @@ namespace nu
     g.drawLine(x + c, y, x + w, y, line); g.drawLine(x + w, y, x + w, y + h - c, line); g.drawLine(x + w, y + h - c, x + w - c, y + h, line);
     g.drawLine(x + w - c, y + h, x, y + h, line); g.drawLine(x, y + h, x, y + c, line); g.drawLine(x, y + c, x + c, y, line);
   }
-  template<class G> static void layoutNeon(G &g, const NuIn &n, const NuPal &)
+  template<class G> static void layoutNeon(G &g, const NuIn &n, const NuPal &p)
   {
     const CkIn &in = n.k;
     const uint16_t cy_ = nuRgb(60, 240, 255), mg = nuRgb(255, 60, 200), bg = nuRgb(8, 6, 20), pan = nuRgb(16, 10, 36);
@@ -235,10 +241,11 @@ namespace nu
     g.setFont(&FontB612Big); g.setTextSize(1.15f); const int fw = g.textWidth(fs);
     text(g, FontB612Big, fs, 150 - fw / 2 - 2, 54, mg, D_ML); text(g, FontB612Big, fs, 150 - fw / 2 + 2, 52, cy_, D_ML); text(g, FontB612Big, fs, 150 - fw / 2, 53, 0xFFFF, D_ML);
     g.setTextSize(1.0f);
+    digitCursorFont(g, FontB612Big, 1.15f, in.hl, fs, 150 - fw / 2, 53, 0xFFFF, mg, -2);
     text(g, FontB612Bold12, unit, 150 + fw / 2 + 8, 63, cy_, D_ML);
     text(g, FontB612Bold12, in.modeName, 20, 33, cy_, D_ML);
     { char hb[32]; snprintf(hb, sizeof(hb), "STEP %s   VOL %d", in.step ? in.step : "", in.volume); text(g, FontB612Reg10, hb, 20, 79, nuRgb(130, 200, 220), D_ML); }
-    if(in.station && in.station[0]) text(g, FontB612Bold12, in.station, 296, 33, mg, D_MR);
+    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold12, in.station, 20, 10, 210, mg, n.ms);
     // data row
     char sv[10], nv[12]; nuSText(sv, sizeof(sv), ckStrength(in.rssi, in.mode == 0)); snprintf(nv, sizeof(nv), "%d dB", in.snr);
     chamfer(g, 6, 96, 150, 66, 9, cy_, pan);
@@ -277,7 +284,7 @@ namespace nu
     g.drawWedgeLine(cx, cy, cx + (R - 2) * cosf(pa), cy + (R - 2) * sinf(pa), 1.6f, 0.4f, p.needle);
     g.fillSmoothCircle(cx, cy, 3, p.txt);
     chip(g, 164, 8, 40, 18, in.modeName, p.acc);
-    if(in.station && in.station[0]) text(g, FontB612Bold12, in.station, 212, 17, p.txt2, D_ML);
+    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold12, in.station, 212, 17, 100, p.txt2, n.ms);
     char fs[16]; const char *unit = freqStr(in, fs, sizeof(fs));
     text(g, FontB612Big, fs, 164, 56, p.txt, D_ML);
     g.setFont(&FontB612Big); const int fw = g.textWidth(fs);

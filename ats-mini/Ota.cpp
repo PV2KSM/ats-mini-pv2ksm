@@ -226,6 +226,8 @@ bool otaRequestLatest(bool install)
 
 static bool otaDownloadLatest(bool install)
 {
+  // PV2KSM mod: the online check looks at the original project's releases, which would replace this firmware.
+  return otaFail("Mod: use Manual upload.");
   ota.phase = OTA_CONNECTING;
   otaDrawProgress();
   if(WiFi.status() != WL_CONNECTED)

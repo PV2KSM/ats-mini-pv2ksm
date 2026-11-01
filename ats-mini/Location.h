@@ -29,11 +29,14 @@ void locationGetCartoKey(char *out, size_t size);           // For the map layer
 
 // Basemap for the Flights radar. url is a tile template with {z} {x} {y} (and optional {key}).
 enum { MAP_STYLE_DARK = 0, MAP_STYLE_LIGHT = 1, MAP_STYLE_AUTO = 2 };   // Auto: light 06:00-18:00 local time
+enum { MAP_SRC_CARTO = 0, MAP_SRC_OSM = 1, MAP_SRC_CUSTOM = 2 };
+uint8_t locationMapSource();   // Which provider the current tile URL belongs to
 void locationGetMapCfg(char *url, size_t size, bool *on, uint8_t *style = nullptr);
 const char *locationRequestMapCfg(const char *url, bool on, uint8_t style = MAP_STYLE_LIGHT);  // nullptr on success, else an error message
-#define LOCATION_DEFAULT_TILE_URL "https://basemaps.cartocdn.com/rastertiles/{style}/{z}/{x}/{y}.png"
+#define LOCATION_DEFAULT_TILE_URL "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   // OpenStreetMap standard tiles: no key
 #define LOCATION_LIGHT_TILE_URL   "https://basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png"
 #define LOCATION_DARK_TILE_URL    "https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png"
+#define LOCATION_OSM_TILE_URL     "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   // OpenStreetMap standard tiles (no key; see its tile usage policy)
 #define LOCATION_OLD_TILE_URL     "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"   // r5 default (no longer served without a key)
 
 // Implemented by the screens that depend on the position

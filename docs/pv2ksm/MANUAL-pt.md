@@ -79,9 +79,9 @@ Duas páginas (gire): Network (Wi-Fi, IP, canal, MAC, hora, tempo ligado, memór
 ![finance](screenshots/lang/web-finance-pt.jpg)
 ![config](screenshots/lang/web-config-pt.jpg)
 
-## Chave do mapa (opcional)
+## Fonte do mapa
 
-O fundo do mapa precisa da sua própria chave gratuita do CARTO basemaps (<https://carto.com/basemaps/apikey/>). Digite em **Localização**; ela fica só no seu rádio e nunca é mostrada de volta. O firmware nunca contém chave.
+O fundo do mapa usa o **OpenStreetMap** por padrão, sem precisar de chave (a atribuição aparece no mapa). Os tiles do OpenStreetMap são um serviço comunitário gratuito: não faça uso pesado; o acesso pode ser bloqueado sem aviso. Em **Localização** você pode escolher *Personalizado* e digitar outra URL de tiles (e uma chave, se esse serviço exigir); a chave fica só no seu rádio e nunca é mostrada de volta. O firmware nunca contém chave.
 
 ## Instalação
 

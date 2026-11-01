@@ -149,7 +149,7 @@ static void drawAboutCredits(uint8_t arrow)
   drawAboutCommon(arrow);
   static const char *const lines[] =
   {
-    "Map: (c) OpenStreetMap, CARTO",
+    "Map: (c) OpenStreetMap contributors",
     "Weather: Open-Meteo.com (CC BY 4.0)",
     "Rain radar: RainViewer.com",
     "Flights: adsb.lol  METAR: NOAA AWC",

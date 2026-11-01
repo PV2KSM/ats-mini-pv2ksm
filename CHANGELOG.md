@@ -4,6 +4,26 @@ The user manual is available at <https://esp32-si4732.github.io/ats-mini/manual.
 
 <!-- towncrier release notes start -->
 
+## PV2KSM r30B (2026-11-01) - Scan screens, web Control, OpenStreetMap
+
+### Fix
+
+- Frequency digit cursor in the new layouts; MUTED/SQ badges, station names and status messages no longer overlap or lack a background.
+- Carousel/Grid menus over the original layouts: the side bar no longer covers the menu icons and the info box is no longer drawn in the middle of the screen.
+
+### Added
+
+- Scan screen for every new layout and for Cockpit, Analog and Avionics, with frequency, RSSI, SNR, scale and peak. Default and S-Meter keep the classic Scan graph.
+- Web Control tab: fixed radio screen on top, encoder buttons (rotate, click, short press), volume, signal, go-to frequency, band and mode (PT/EN/ES).
+- Rain radar page in the Weather screen of the new look.
+- OpenStreetMap is the preconfigured map source (no key needed); CARTO removed and old settings migrated; attribution on the map and in About.
+
+### Notes
+
+- Online update is disabled in the mod (use Manual upload).
+- Known issue: Bluetooth Ad hoc mode can stop the web interface responding on some radios; cause not found yet.
+- Hardware status is in docs/pv2ksm/RELEASE-r30B.md.
+
 ## PV2KSM r30A (2026-10-31) - graphics update
 
 ### Fix

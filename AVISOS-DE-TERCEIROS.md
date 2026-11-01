@@ -8,7 +8,7 @@ Este firmware usa dados e componentes de terceiros. Cada um mantém seus própri
 | Fonte B612 | Fonte das telas Cockpit/Analog/Avionics | SIL OFL 1.1 | Texto em `licencas/FontB612-OFL.txt` |
 | LovyanGFX | Gráficos | Licença permissiva (FreeBSD/MIT) | Biblioteca do projeto base |
 | adsb.lol | Voos | Dados abertos (ODbL) | Citar a fonte |
-| OpenStreetMap / CARTO | Mapa de fundo | ODbL (dados) e termos do CARTO | Atribuição "(c) OSM/CARTO" exibida; cada usuário usa a própria chave |
+| OpenStreetMap | Mapa de fundo | ODbL (dados); tiles: política de uso do OSM | Atribuição "(c) OpenStreetMap contributors" exibida; User-Agent identificado; sem uso pesado (o acesso pode ser bloqueado sem aviso); o usuário pode configurar outra fonte de tiles |
 | Open-Meteo | Clima | Gratuito para uso **não comercial**; dados CC-BY 4.0 | Uso comercial exige plano pago. https://open-meteo.com/en/terms |
 | aviationweather.gov (NOAA/NWS) | METAR | Dados públicos dos EUA | |
 | RainViewer | Radar de chuva | API gratuita para uso pessoal e educacional; zoom máx. 7, só radar passado | Uso comercial: falar com o suporte. https://www.rainviewer.com/api/transition-faq.html |

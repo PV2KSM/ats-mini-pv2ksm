@@ -25,7 +25,7 @@ static constexpr const lgfx::IFont* FONT_DIGITS  = &lgfx::fonts::Font7;  // 48px
 #define AUTHORS_LINE3  "Goshante, G8PTN (Dave), R9UCL (Max Arnold),"
 #define AUTHORS_LINE4  "Marat Fayzullin"
 #define MOD_LINE1      "Modified by PV2KSM"
-#define MOD_LINE2      "Flights, weather, map, Cockpit/Analog/Avionics UI"
+#define MOD_LINE2      "Flights, weather, map, new UI, web control"
 
 #define VER_APP        245  // Firmware version
 #define VER_OTA          1  // OTA compatibility; bump when a full USB flash is required

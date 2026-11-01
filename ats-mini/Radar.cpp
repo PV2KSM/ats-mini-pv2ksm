@@ -1,6 +1,6 @@
 //
 // Rain radar page of the Weather screen.
-//   Base map: dark CARTO raster tiles (same template and key as the Flights map).
+//   Base map: raster tiles (same template and key as the Flights map).
 //   Rain:     RainViewer radar tiles (latest past frame, "Universal Blue", PNG with transparency).
 // The zoom is an integer level (6 or 7; RainViewer allows at most 7), so one tile pixel is one
 // screen pixel and every tile is simply decoded straight into a 320x170 window with
@@ -360,7 +360,7 @@ void radarDraw(LGFX_Sprite &spr)
   }
 
   {
-    const char *at = "(c) OSM/CARTO RainViewer";
+    const char *at = "(c) OSM RainViewer";
     const int aw = strlen(at) * 6 + 8;
     chip(RADAR_W - 3 - aw, 17, aw, 12);
     spr.setTextColor(cDim);

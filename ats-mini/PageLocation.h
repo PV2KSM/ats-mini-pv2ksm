@@ -24,15 +24,15 @@ static const char pageLocation[] PROGMEM = R"HTML(<H1>{{title}}</H1>
   <TR><TH CLASS="HEADING" COLSPAN="2">Radar map (Flights)</TH></TR>
   <TR><TD CLASS="LABEL">Show map</TD>
       <TD><LABEL><INPUT TYPE="checkbox" NAME="mapon" VALUE="1" {{mapchecked}}> Draw the basemap behind the radar</LABEL></TD></TR>
-  <TR><TD CLASS="LABEL">Map style</TD>
-      <TD><SELECT NAME="mapstyle">
-        <OPTION VALUE="0" {{sdark}}>Dark</OPTION>
-        <OPTION VALUE="1" {{slight}}>Light</OPTION>
-        <OPTION VALUE="2" {{sauto}}>Automatic (light 06:00-18:00, dark at night)</OPTION>
-      </SELECT><BR><SMALL>Works with the default CARTO tiles and with any CARTO URL containing dark_all or light_all.</SMALL></TD></TR>
+  <TR><TD CLASS="LABEL">Map source</TD>
+      <TD><SELECT NAME="mapsrc">
+        <OPTION VALUE="1" {{srcosm}}>OpenStreetMap (default, no key needed)</OPTION>
+        <OPTION VALUE="2" {{srccustom}}>Custom (Tile URL below)</OPTION>
+      </SELECT><BR><SMALL>OpenStreetMap tiles are a free community service. Access may be blocked without notice if usage is heavy.</SMALL><BR>
+      <A HREF="https://operations.osmfoundation.org/policies/tiles/">OpenStreetMap tile usage policy</A></TD></TR>
   <TR><TD CLASS="LABEL">Tile URL</TD>
       <TD><INPUT TYPE="text" NAME="mapurl" VALUE="{{mapurl}}" MAXLENGTH="159" AUTOCAPITALIZE="off" SPELLCHECK="false"><BR>
-      <SMALL>Raster PNG template with {z}, {x}, {y}. Put {key} where the key goes; without it the key is added as ?key=... (CARTO style). Clear the field to restore the default (CARTO, style above). The map is downloaded when the Flights screen opens (needs Wi-Fi).</SMALL></TD></TR>
+      <SMALL>Raster PNG template with {z}, {x}, {y}. Use {key} where a key goes (only for custom providers that need one). Clear the field to restore OpenStreetMap. The map is downloaded when the Flights screen opens (needs Wi-Fi).</SMALL></TD></TR>
   <TR><TD CLASS="LABEL">Key ({{keystate}})</TD>
       <TD><INPUT TYPE="password" NAME="ckey" VALUE="" AUTOCOMPLETE="off" PLACEHOLDER="leave empty to keep the current key"><BR>
       <LABEL><INPUT TYPE="checkbox" NAME="clearkey" VALUE="1"> Erase the stored key</LABEL><BR>

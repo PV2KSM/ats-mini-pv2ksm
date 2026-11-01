@@ -82,6 +82,7 @@ struct NuIn
   const uint8_t *wf;          // Waterfall history: wfRows rows of wfCols samples 0..255, row 0 = newest sweep
   int wfRows, wfCols, wfHave; // wfHave = number of valid rows
   uint32_t wfLo, wfHi;        // Frequency span of the sweep (Hz)
+  uint32_t ms;                // millis(), used to scroll names that do not fit
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -152,6 +153,80 @@ namespace nu
   template<class G> static void text(G &g, const lgfx::GFXfont &f, const char *s, int x, int y, uint16_t col, int datum = 0)
   {
     g.setFont(&f); g.setTextDatum((lgfx::textdatum_t)datum); g.setTextColor(col); g.drawString(s, x, y);
+  }
+
+
+  // Text on a small rounded box in the theme colours, so it stays readable over scales, labels and icons.
+  // Same x/y/datum convention as text(). `edge` picks the outline colour (cardLine normally, accent when highlighted).
+  template<class G> static void tag(G &g, const NuPal &p, const lgfx::GFXfont &f, const char *s, int x, int y, uint16_t col, int datum = 0, bool hi = false)
+  {
+    g.setFont(&f);
+    const int tw = g.textWidth(s), th = g.fontHeight(), pw = tw + 10, ph = th + 4;
+    const int h = datum & 3, v = datum >> 2;                      // 0 left/1 centre/2 right; 0 top/1 middle/4 bottom (as 0,1,4)
+    int bx = h == 0 ? x - 5 : (h == 1 ? x - pw / 2 : x - pw + 5);
+    int by = v == 0 ? y - 2 : (v == 1 ? y - ph / 2 : y - ph + 2);
+    if(bx < 1) bx = 1; if(bx + pw > 319) bx = 319 - pw;
+    if(by < 1) by = 1; if(by + ph > 169) by = 169 - ph;
+    g.fillRoundRect(bx, by, pw, ph, 5, p.bg2);
+    g.drawRoundRect(bx, by, pw, ph, 5, hi ? p.acc : p.cardLine);
+    g.setTextDatum(lgfx::textdatum_t::top_left); g.setTextColor(col); g.drawString(s, bx + 5, by + 2);
+  }
+
+
+  // Station / long name inside a fixed region: drawn as is when it fits, otherwise scrolled (marquee) so it never
+  // runs over the neighbouring elements. y is the vertical centre; datum D_ML = left aligned, D_MC = centred.
+  template<class G> static void nameFit(G &g, const NuPal &, const lgfx::GFXfont &f, const char *s, int x, int y, int w, uint16_t col, uint32_t ms, int datum = D_ML)
+  {
+    if(w < 8 || !s || !*s) return;
+    g.setFont(&f);
+    const int tw = g.textWidth(s), fh = g.fontHeight(), ty = y - fh / 2;
+    g.setTextDatum(lgfx::textdatum_t::top_left); g.setTextColor(col);
+    if(tw <= w) { g.drawString(s, datum == D_MC ? x + (w - tw) / 2 : x, ty); return; }
+    const int gap = 28, off = (int)((ms / 40) % (uint32_t)(tw + gap));
+    g.setClipRect(x, ty - 1, w, fh + 2);
+    g.drawString(s, x - off, ty);
+    g.drawString(s, x - off + tw + gap, ty);
+    g.clearClipRect();
+  }
+
+
+  // Cursor under the selected frequency digit during direct entry (hl: low 7 bits = position, 0x80 = push+rotate,
+  // 100 = off). xs/xe hold the left/right edge of every character of fs; digits are counted from the right, skipping
+  // the dot. A "5" position (odd) also covers the next digit to the left, as in the original layouts.
+  template<class G> static void digitCursorSpans(G &g, uint8_t hl, const char *fs, const int *xs, const int *xe, int y, uint16_t cNorm, uint16_t cSel)
+  {
+    if(hl == 100 || (hl & 0x7F) == 100) return;
+    const int slot = (hl & 0x7F) / 2; const bool half = (hl & 1) != 0, sel = (hl & 0x80) != 0;
+    const int n = (int)strlen(fs);
+    int idx[16], nd = 0;
+    for(int i = n - 1 ; i >= 0 && nd < 16 ; i--) if(fs[i] != '.') idx[nd++] = i;
+    if(slot >= nd) return;
+    int a = xs[idx[slot]], b = xe[idx[slot]];
+    if(half && slot + 1 < nd && xs[idx[slot + 1]] < a) a = xs[idx[slot + 1]];
+    if(sel)
+    {
+      g.fillRoundRect(a + 1, y - 1, b - a - 2, 3, 1, cSel);
+      g.fillTriangle(a, y, a + 3, y - 3, a + 3, y + 3, cSel);
+      g.fillTriangle(b - 1, y, b - 4, y - 3, b - 4, y + 3, cSel);
+    }
+    else g.fillRoundRect(a, y - 1, b - a, 3, 1, cNorm);
+  }
+
+  // Same, for a string drawn with a font at xLeft; yc = vertical centre of the text, the line goes just under it.
+  template<class G> static void digitCursorFont(G &g, const lgfx::GFXfont &f, float scale, uint8_t hl, const char *fs, int xLeft, int yc, uint16_t cNorm, uint16_t cSel, int dy = 0)
+  {
+    if(hl == 100 || (hl & 0x7F) == 100) return;
+    g.setFont(&f); g.setTextSize(scale);
+    const int n = (int)strlen(fs); int xs[16], xe[16]; char b[16];
+    if(n > 15) { g.setTextSize(1.0f); return; }
+    for(int i = 0 ; i < n ; i++)
+    {
+      memcpy(b, fs, i); b[i] = 0; xs[i] = xLeft + g.textWidth(b);
+      memcpy(b, fs, i + 1); b[i + 1] = 0; xe[i] = xLeft + g.textWidth(b);
+    }
+    const int y = yc + g.fontHeight() / 2 - 1 + dy;
+    g.setTextSize(1.0f);
+    digitCursorSpans(g, hl, fs, xs, xe, y, cNorm, cSel);
   }
 
   // Soft glow: a few outlines that fade into the background
@@ -290,7 +365,9 @@ namespace nu
     text(g, FontB612Bold16, fs, 44, 11, p.txt, D_ML);
     g.setFont(&FontB612Bold16); const int fw = g.textWidth(fs);
     text(g, FontB612Reg10, unit, 44 + fw + 4, 14, p.muted, D_ML);
-    if(in.station && in.station[0]) text(g, FontB612Bold12, in.station, 236, 4, p.txt2, D_TR);
+    { g.setFont(&FontB612Reg10); const int ux = 44 + fw + 4 + g.textWidth(unit) + 10;
+      nameFit(g, p, FontB612Bold12, in.station, ux, 11, 236 - ux, p.txt2, n.ms); }
+    digitCursorFont(g, FontB612Bold16, 1.0f, in.hl, fs, 44, 11, p.acc, p.needle);
     // Lit tuning scale
     bezel(g, 6, 24, 308, 46, 5);
     gradRound(g, 6, 24, 308, 46, 5, cream1, cream2, 70);
@@ -341,12 +418,14 @@ namespace nu
     rrAA(g, 6, 4, 32, 16, 4, p.acc);
     text(g, FontB612Bold12, in.modeName, 22, 12, p.txt, D_MC);
     char fs[16]; const char *unit = freqStr(in, fs, sizeof(fs));
-    g.setFont(&FontB612Big); const int fw = g.textWidth(fs);
+    g.setFont(&FontB612Big); g.setTextSize(0.88f); const int fw = g.textWidth(fs);
     const int fx = 160 - fw / 2;
-    text(g, FontB612Big, fs, fx + 1, 29, ckMix(p.bg1, p.acc, 90), D_ML);          // soft glow
-    text(g, FontB612Big, fs, fx, 28, p.txt, D_ML);
-    text(g, FontB612Reg10, unit, fx + fw + 4, 36, p.acc, D_ML);
-    if(in.station && in.station[0]) text(g, FontB612Bold12, in.station, 8, 38, p.txt2, D_TL);
+    text(g, FontB612Big, fs, fx + 1, 35, ckMix(p.bg1, p.acc, 90), D_ML);          // soft glow
+    text(g, FontB612Big, fs, fx, 34, p.txt, D_ML);
+    g.setTextSize(1.0f);
+    text(g, FontB612Reg10, unit, fx + fw + 4, 42, p.acc, D_ML);
+    nameFit(g, p, FontB612Bold12, in.station, 44, 11, 186, p.txt2, n.ms);          // top row, beside the mode chip
+    digitCursorFont(g, FontB612Big, 0.88f, in.hl, fs, fx, 34, p.acc, p.needle, -3);
     // glass scale
     g.fillSmoothRoundRect(8, 52, 304, 40, 6, nuRgb(18, 17, 16));
     rrAA(g, 8, 52, 304, 40, 6, ckMix(p.bg1, p.acc, 90));
@@ -400,6 +479,8 @@ namespace nu
     g.drawFastVLine(px + 2, 18, 80, nuRgb(180, 150, 100)); g.drawFastVLine(px - 1, 18, 80, redc); g.drawFastVLine(px, 18, 80, redc);
     char fs[16]; const char *unit = freqStr(in, fs, sizeof(fs)); char line[40]; snprintf(line, sizeof(line), "%s  %s %s", in.modeName, fs, unit);
     text(g, FontB612Bold12, line, 160, 88, nuRgb(50, 30, 14), D_MC);
+    { g.setFont(&FontB612Bold12); const int lw = g.textWidth(line); char pre[16]; snprintf(pre, sizeof(pre), "%s  ", in.modeName);
+      digitCursorFont(g, FontB612Bold12, 1.0f, in.hl, fs, 160 - lw / 2 + g.textWidth(pre), 88, redc, nuRgb(30, 18, 8), 1); }
     for(int k = 0 ; k < 2 ; k++)
     {
       const int cx = k ? 303 : 17;
@@ -412,7 +493,7 @@ namespace nu
     const float open = 60.f + 240.f * n.sN;
     g.fillArc(160, 131, 4, 13, 270.f - open / 2, 270.f + open / 2, nuRgb(130, 255, 130));
     g.fillSmoothCircle(160, 131, 3, nuRgb(10, 24, 12));
-    if(in.station && in.station[0]) text(g, FontB612Bold12, in.station, 22, 126, nuRgb(240, 218, 160), D_TL);
+    nameFit(g, p, FontB612Bold12, in.station, 22, 132, 118, nuRgb(240, 218, 160), n.ms);
     char sv[10], nv[10]; nuSText(sv, sizeof(sv), ckStrength(in.rssi, in.mode == 0)); snprintf(nv, sizeof(nv), "%d dB", in.snr);
     text(g, FontB612Bold12, sv, 298, 126, nuRgb(240, 218, 160), D_TR); text(g, FontB612Reg10, nv, 298, 144, nuRgb(190, 160, 100), D_TR);
     if(in.step && in.step[0]) text(g, FontB612Reg10, in.step, 22, 144, nuRgb(190, 160, 100), D_TL);
@@ -440,7 +521,8 @@ namespace nu
     card(g, 8, 122, 144, 40, 8, p);
     char fs[16]; const char *unit = freqStr(in, fs, sizeof(fs)); char fl[24]; snprintf(fl, sizeof(fl), "%s %s", fs, unit);
     text(g, FontB612Bold12, fl, 16, 130, p.acc, D_TL);
-    text(g, FontB612Reg10, in.station && in.station[0] ? in.station : in.modeName, 16, 146, p.muted, D_TL);
+    digitCursorFont(g, FontB612Bold12, 1.0f, in.hl, fs, 16, 137, p.txt, p.needle);
+    nameFit(g, p, FontB612Reg10, in.station && in.station[0] ? in.station : in.modeName, 16, 152, 130, p.muted, n.ms);
     card(g, 168, 122, 144, 40, 8, p);
     if(in.haveWx && in.wx.valid)
     {
@@ -463,8 +545,9 @@ namespace nu
     char fs[16]; const char *unit = freqStr(in, fs, sizeof(fs));
     g.setFont(&FontB612Big); const int fw = g.textWidth(fs);
     text(g, FontB612Big, fs, 160 - fw / 2, 40, p.txt, D_ML);
+    digitCursorFont(g, FontB612Big, 1.0f, in.hl, fs, 160 - fw / 2, 40, p.acc, p.needle, -3);
     text(g, FontB612Reg10, unit, 160 + fw / 2 + 4, 48, p.acc, D_ML);
-    if(in.station && in.station[0]) text(g, FontB612Bold12, in.station, 8, 28, p.txt2, D_TL);
+    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold12, in.station, 64, 11, 170, p.txt2, n.ms);
     const int y = 104, x0 = 14, x1 = 306;
     const double lo = in.minFreq, hi = in.maxFreq > in.minFreq ? in.maxFreq : in.minFreq + 1;
     g.fillSmoothRoundRect(x0, y - 1, x1 - x0, 3, 1, ckMix(p.bg1, 0xFFFF, 60));
@@ -515,7 +598,7 @@ namespace nu
     text(g, FontB612Big, fs, 46, 3, p.txt, D_TL);
     g.setFont(&FontB612Big); const int fw = g.textWidth(fs);
     text(g, FontB612Reg10, unit, 46 + fw + 4, 28, p.acc, D_ML);
-    if(in.station && in.station[0]) text(g, FontB612Bold12, in.station, 314, 4, p.txt2, D_TR);
+    if(in.station && in.station[0]) tag(g, p, FontB612Bold12, in.station, 314, 4, p.txt2, D_TR);
     char sv[10]; nuSText(sv, sizeof(sv), ckStrength(in.rssi, in.mode == 0));
     text(g, FontB612Bold12, sv, 314, 22, p.acc, D_TR);
 

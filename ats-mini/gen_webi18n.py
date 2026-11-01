@@ -6,6 +6,21 @@ import json
 
 # (English text as it appears in the page (whitespace collapsed), Portuguese, Spanish)
 T = [
+# Map source, web navigation
+("OpenStreetMap (default, no key needed)","OpenStreetMap (padrão, sem chave)","OpenStreetMap (predeterminado, sin clave)"),
+("Custom (Tile URL below)","Personalizado (URL dos tiles abaixo)","Personalizado (URL de los tiles abajo)"),
+("OpenStreetMap tiles are a free community service. Access may be blocked without notice if usage is heavy.","Os tiles do OpenStreetMap são um serviço comunitário gratuito. O acesso pode ser bloqueado sem aviso se o uso for intenso.","Los tiles de OpenStreetMap son un servicio comunitario gratuito. El acceso puede bloquearse sin aviso si el uso es intenso."),
+("OpenStreetMap tile usage policy","Política de uso dos tiles do OpenStreetMap","Política de uso de los tiles de OpenStreetMap"),
+("Raster PNG template with {z}, {x}, {y}. Use {key} where a key goes (only for custom providers that need one). Clear the field to restore OpenStreetMap. The map is downloaded when the Flights screen opens (needs Wi-Fi).","Modelo PNG raster com {z}, {x}, {y}. Use {key} onde vai a chave (só para provedores personalizados que exigem uma). Deixe o campo vazio para restaurar o OpenStreetMap. O mapa é baixado quando a tela de Voos abre (precisa de Wi-Fi).","Plantilla PNG ráster con {z}, {x}, {y}. Use {key} donde va la clave (solo para proveedores personalizados que la exijan). Deje el campo vacío para restaurar OpenStreetMap. El mapa se descarga cuando se abre la pantalla de Vuelos (necesita Wi-Fi)."),
+("Navigation (same as the encoder)","Navegação (igual ao encoder)","Navegación (igual que el encoder)"),
+("\u25c0 Rotate","\u25c0 Girar","\u25c0 Girar"),("Rotate \u25b6","Girar \u25b6","Girar \u25b6"),
+("Click","Clique","Clic"),("Short press","Pressão curta","Pulsación corta"),
+("Rotate down: tune down / previous menu item","Girar para baixo: sintoniza para baixo / item anterior do menu","Girar hacia abajo: sintoniza hacia abajo / elemento anterior del menú"),
+("Rotate up: tune up / next menu item","Girar para cima: sintoniza para cima / próximo item do menu","Girar hacia arriba: sintoniza hacia arriba / siguiente elemento del menú"),
+("Single click: select / open the menu","Clique simples: seleciona / abre o menu","Clic simple: selecciona / abre el menú"),
+("Short press (over half a second)","Pressão curta (mais de meio segundo)","Pulsación corta (más de medio segundo)"),
+("Rotate moves the frequency or scrolls the menu. Click opens or selects. Short press is the encoder button held for about half a second.","Girar muda a frequência ou rola o menu. Clique abre ou seleciona. Pressão curta é o botão do encoder mantido por cerca de meio segundo.","Girar cambia la frecuencia o desplaza el menú. Clic abre o selecciona. La pulsación corta es el botón del encoder mantenido aproximadamente medio segundo."),
+
 # New look (Visual, colours, menu style, new layouts)
 
 ("Accent color","Cor de destaque","Color de acento"),
@@ -70,7 +85,7 @@ T = [
 ("Download screenshot","Baixar captura de tela","Descargar captura de pantalla"),
 # Control
 ("Radio screen","Tela do rádio","Pantalla de la radio"),("Signal","Sinal","Señal"),("Volume","Volume","Volumen"),
-("Step:","Passo:","Paso:"),("Go to frequency","Ir para a frequência","Ir a la frecuencia"),("Go","Ir","Ir"),
+("Step:","Passo:","Paso:"),("Tuning","Sintonia","Sintonía"),("Go to frequency","Ir para a frequência","Ir a la frecuencia"),("Go","Ir","Ir"),
 ("e.g. 98.1 or 7150","ex.: 98.1 ou 7150","p. ej.: 98.1 o 7150"),
 ("connecting","conectando","conectando"),("online","online","en línea"),("offline","offline","sin conexión"),
 ("+1 step","+1 passo","+1 paso"),("+10 steps","+10 passos","+10 pasos"),("-1 step","-1 passo","-1 paso"),("-10 steps","-10 passos","-10 pasos"),
@@ -99,13 +114,7 @@ T = [
 ("Map style","Estilo do mapa","Estilo del mapa"),
 ("Automatic (light 06:00-18:00, dark at night)","Automático (claro 06:00-18:00, escuro à noite)","Automático (claro 06:00-18:00, oscuro de noche)"),
 ("Light","Claro","Claro"),("Dark","Escuro","Oscuro"),
-("Works with the default CARTO tiles and with any CARTO URL containing dark_all or light_all.",
- "Funciona com os tiles CARTO padrão e com qualquer URL CARTO que contenha dark_all ou light_all.",
- "Funciona con los tiles CARTO predeterminados y con cualquier URL CARTO que contenga dark_all o light_all."),
-("Tile URL","URL dos tiles","URL de los tiles"),
-("Raster PNG template with {z}, {x}, {y}. Put {key} where the key goes; without it the key is added as ?key=... (CARTO style). Clear the field to restore the default (CARTO, style above). The map is downloaded when the Flights screen opens (needs Wi-Fi).",
- "Modelo PNG raster com {z}, {x}, {y}. Coloque {key} onde vai a chave; sem ele a chave é adicionada como ?key=... (estilo CARTO). Deixe o campo vazio para restaurar o padrão (CARTO, estilo acima). O mapa é baixado quando a tela de Voos abre (precisa de Wi-Fi).",
- "Plantilla PNG ráster con {z}, {x}, {y}. Ponga {key} donde va la clave; sin él la clave se añade como ?key=... (estilo CARTO). Deje el campo vacío para restaurar el valor predeterminado (CARTO, estilo de arriba). El mapa se descarga al abrir la pantalla de Vuelos (requiere Wi-Fi)."),
+("Tile URL","URL dos tiles","URL de los tiles"),("Map source","Fonte do mapa","Fuente del mapa"),
 ("leave empty to keep the current key","deixe vazio para manter a chave atual","deje vacío para mantener la clave actual"),
 ("Stored only on this radio and never shown again.","Guardada só neste rádio e nunca mostrada de novo.","Se guarda solo en esta radio y no se vuelve a mostrar."),
 ("Erase the stored key","Apagar a chave guardada","Borrar la clave guardada"),
@@ -197,9 +206,9 @@ R = [
 (r"^Internal heap: ([\d.]+) KiB used / ([\d.]+) KiB free · PSRAM: ([\d.]+) KiB used / ([\d.]+) KiB free \(at page render\)$",
  "Heap interno: $1 KiB usados / $2 KiB livres · PSRAM: $3 KiB usados / $4 KiB livres (ao gerar a página)",
  "Heap interno: $1 KiB usados / $2 KiB libres · PSRAM: $3 KiB usados / $4 KiB libres (al generar la página)"),
-(r"^Data: map © OpenStreetMap contributors, © CARTO · weather Open-Meteo\.com \(CC BY 4\.0\) · rain radar RainViewer · flights adsb\.lol · METAR NOAA Aviation Weather Center · prices Coinbase and Frankfurter \(ECB\) · airports OurAirports · font B612 \(Airbus, SIL OFL\) · added features by PV2KSM$",
- "Dados: mapa © colaboradores do OpenStreetMap, © CARTO · clima Open-Meteo.com (CC BY 4.0) · radar de chuva RainViewer · voos adsb.lol · METAR NOAA Aviation Weather Center · cotações Coinbase e Frankfurter (BCE) · aeroportos OurAirports · fonte B612 (Airbus, SIL OFL) · recursos adicionais por PV2KSM",
- "Datos: mapa © colaboradores de OpenStreetMap, © CARTO · clima Open-Meteo.com (CC BY 4.0) · radar de lluvia RainViewer · vuelos adsb.lol · METAR NOAA Aviation Weather Center · cotizaciones Coinbase y Frankfurter (BCE) · aeropuertos OurAirports · fuente B612 (Airbus, SIL OFL) · funciones añadidas por PV2KSM"),
+(r"^Data: map © OpenStreetMap contributors, weather Open-Meteo\.com \(CC BY 4\.0\) · rain radar RainViewer · flights adsb\.lol · METAR NOAA Aviation Weather Center · prices Coinbase and Frankfurter \(ECB\) · airports OurAirports · font B612 \(Airbus, SIL OFL\) · added features by PV2KSM$",
+ "Dados: mapa © colaboradores do OpenStreetMap, clima Open-Meteo.com (CC BY 4.0) · radar de chuva RainViewer · voos adsb.lol · METAR NOAA Aviation Weather Center · cotações Coinbase e Frankfurter (BCE) · aeroportos OurAirports · fonte B612 (Airbus, SIL OFL) · recursos adicionais por PV2KSM",
+ "Datos: mapa © colaboradores de OpenStreetMap, clima Open-Meteo.com (CC BY 4.0) · radar de lluvia RainViewer · vuelos adsb.lol · METAR NOAA Aviation Weather Center · cotizaciones Coinbase y Frankfurter (BCE) · aeropuertos OurAirports · fuente B612 (Airbus, SIL OFL) · funciones añadidas por PV2KSM"),
 ]
 
 # Weather descriptions for the Status page (Open-Meteo WMO codes) per language

@@ -157,7 +157,7 @@ static bool buildUrl(char *out, size_t size, const char *tpl, const char *key, i
     n += l;
   }
   out[n] = 0;
-  if(!usedKey && key[0])
+  if(!usedKey && key[0] && !strstr(tpl, "openstreetmap.org"))   // Never send the CARTO key to OpenStreetMap
   {
     int w = snprintf(out + n, size - n, "%skey=%s", strchr(out, '?') ? "&" : "?", key);
     if(w < 0 || (size_t)w >= size - n) return false;
@@ -291,7 +291,7 @@ static void buildMapLocked()
   HTTPClient http;                       // One connection is kept alive for all tiles (same host)
   http.setConnectTimeout(10000);
   http.setTimeout(15000);
-  http.setUserAgent(getUserAgent());
+  http.setUserAgent("ATS-Mini-PV2KSM/r30B (+https://github.com/PV2KSM/ats-mini-pv2ksm)");
   http.setReuse(true);
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 

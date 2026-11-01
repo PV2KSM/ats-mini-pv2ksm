@@ -59,7 +59,8 @@ void locationBegin()
     if(p.isKey("murl")) p.getString("murl", mapUrl, sizeof(mapUrl));
     mapOn = p.getBool("mon", true);
     mapStyle = constrain(p.getUChar("mstyle", MAP_STYLE_LIGHT), 0, 2);
-    if(!mapUrl[0] || !strcmp(mapUrl, LOCATION_OLD_TILE_URL) || !strcmp(mapUrl, LOCATION_DARK_TILE_URL) || !strcmp(mapUrl, LOCATION_LIGHT_TILE_URL)) strlcpy(mapUrl, LOCATION_DEFAULT_TILE_URL, sizeof(mapUrl));
+    // CARTO is no longer used: any stored CARTO address moves to the default (OpenStreetMap)
+    if(!mapUrl[0] || strstr(mapUrl, "cartocdn.com")) strlcpy(mapUrl, LOCATION_DEFAULT_TILE_URL, sizeof(mapUrl));
     p.end();
   }
   current.hasCartoKey = cartoKey[0] != 0;
@@ -86,6 +87,13 @@ void locationGetMapCfg(char *url, size_t size, bool *on, uint8_t *style)
   if(style) *style = havePendingMap ? pendingMapStyle : mapStyle;
 }
 
+uint8_t locationMapSource()
+{
+  std::lock_guard<std::mutex> lock(mtx);
+  if(strstr(mapUrl, "tile.openstreetmap.org")) return MAP_SRC_OSM;
+  return MAP_SRC_CUSTOM;
+}
+
 const char *locationRequestMapCfg(const char *url, bool on, uint8_t style)
 {
   if(!url) url = "";
@@ -97,7 +105,7 @@ const char *locationRequestMapCfg(const char *url, bool on, uint8_t style)
     for(const char *c = url ; *c ; c++) if((unsigned char)*c < 33 || (unsigned char)*c > 126) return "Tile URL has invalid characters.";
   }
   std::lock_guard<std::mutex> lock(mtx);
-  strlcpy(pendingMapUrl, (*url && strcmp(url, LOCATION_OLD_TILE_URL) && strcmp(url, LOCATION_DARK_TILE_URL) && strcmp(url, LOCATION_LIGHT_TILE_URL)) ? url : LOCATION_DEFAULT_TILE_URL, sizeof(pendingMapUrl));
+  strlcpy(pendingMapUrl, (*url && !strstr(url, "cartocdn.com")) ? url : LOCATION_DEFAULT_TILE_URL, sizeof(pendingMapUrl));
   pendingMapOn = on;
   pendingMapStyle = style > 2 ? MAP_STYLE_LIGHT : style;
   havePendingMap = true;

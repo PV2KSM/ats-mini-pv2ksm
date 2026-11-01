@@ -2401,6 +2401,15 @@ static void drawInfo(int x, int y, int sx)
 //
 // Draw side bar (menu or information)
 //
+// True when the new look draws this command's menu/editor over the whole screen. The original layouts draw their own
+// widgets (scale, meters) after the side bar, so drawScreen() repaints the menu on top of them.
+bool sideBarFullScreen(uint16_t cmd)
+{
+  const bool live = cmd == CMD_VOLUME || cmd == CMD_SQUELCH || cmd == CMD_AGC || cmd == CMD_BRT || cmd == CMD_SOFTMUTE || cmd == CMD_AVC ||
+                    cmd == CMD_UI || cmd == CMD_THEME || cmd == CMD_NUOPT;
+  return uiModern && cmd != CMD_NONE && cmd != CMD_FREQ && cmd != CMD_SCAN && !live;
+}
+
 void drawSideBar(uint16_t cmd, int x, int y, int sx)
 {
   if(sleepOn()) return;
@@ -2409,7 +2418,9 @@ void drawSideBar(uint16_t cmd, int x, int y, int sx)
   // Live adjustments (volume, squelch, AGC...) keep the main screen visible and use the side card.
   const bool live = cmd == CMD_VOLUME || cmd == CMD_SQUELCH || cmd == CMD_AGC || cmd == CMD_BRT || cmd == CMD_SOFTMUTE || cmd == CMD_AVC ||
                     cmd == CMD_UI || cmd == CMD_THEME || cmd == CMD_NUOPT;   // live previews
-  if(uiModern && cmd != CMD_MENU && cmd != CMD_SETTINGS && cmd != CMD_VISUAL && cmd != CMD_SCAN && !live)
+  // The idle screen (no command / frequency entry) shows the info box in its normal place, never as a full-screen editor
+  const bool idleInfo = cmd == CMD_NONE || cmd == CMD_FREQ;
+  if(uiModern && !idleInfo && cmd != CMD_MENU && cmd != CMD_SETTINGS && cmd != CMD_VISUAL && cmd != CMD_SCAN && !live)
   {
     nu::bgFill(spr, nu::menuPal(uiMenuColor, uiAccent, uiTextWhite, uiBgIdx));
     x = 92; y = 28; sx = 60;

@@ -55,6 +55,7 @@ void drawLayoutAnalog()
 
   const bool idle = (currentCmd == CMD_NONE || currentCmd == CMD_FREQ);
 
+  if(currentCmd == CMD_SCAN) drawScanForLayout(in, SCAN_STYLE_ANALOG);
   drawSaveIndicator(190, 0);
   drawBleIndicator(204, 0);
   bool has_voltage = drawBattery(BATT_OFFSET_X, BATT_OFFSET_Y);
@@ -68,7 +69,6 @@ void drawLayoutAnalog()
     spr.drawString(TH.name, 319, BATT_OFFSET_Y + 17);
   }
 
-  if(currentCmd == CMD_SCAN) drawScanGraphs(currentFrequency);
-  else if(!idle) drawSideBar(currentCmd, MENU_OFFSET_X, MENU_OFFSET_Y, MENU_DELTA_X);
+  if(!idle && currentCmd != CMD_SCAN) drawSideBar(currentCmd, MENU_OFFSET_X, MENU_OFFSET_Y, MENU_DELTA_X);
   drawStatus(STATUS_OFFSET_X + 40, 100);
 }

@@ -79,9 +79,9 @@ Two pages (rotate): Network (Wi-Fi, IP, channel, MAC, time, uptime, memory, last
 ![finance](screenshots/lang/web-finance-en.jpg)
 ![config](screenshots/lang/web-config-en.jpg)
 
-## Map key (optional)
+## Map source
 
-The map background needs your own free CARTO basemaps key (<https://carto.com/basemaps/apikey/>). Enter it in **Location**; it stays in your radio and is never shown back. The firmware never contains a key.
+The map background uses **OpenStreetMap** by default, with no key needed (attribution is shown on the map). OpenStreetMap tiles are a free community service: please do not use them heavily, and access may be blocked without notice. In **Location** you can choose *Custom* and enter another tile URL (and a key, if that service needs one); a key stays in your radio and is never shown back. The firmware never contains a key.
 
 ## Installing
 

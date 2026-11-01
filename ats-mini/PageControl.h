@@ -9,10 +9,19 @@ static const char pageControlTitle[] PROGMEM = "ATS-Mini Control";
 static const char pageControl[] PROGMEM = R"HTML(<STYLE>
   .RC { max-width: 560px; margin: 0 auto; padding: 0 12px 16px; }
   .RC .card { background: linear-gradient(160deg, #15203a, #0d1424); color: #e6edf7; border-radius: 18px; padding: 16px; margin: 14px 0; box-shadow: 0 8px 28px rgba(0, 0, 0, .25); border: 1px solid #1f2d4d; }
-  .RC .freq { font: 700 3.3em/1.1 ui-monospace, Menlo, Consolas, monospace; text-align: center; color: #7cfc9a; letter-spacing: .03em; }
-  .RC .sub { text-align: center; color: #9db0cc; margin-top: 4px; }
+  .RC .stick { position: sticky; top: 0; z-index: 5; }
+  .RC .stick .card { background: #0d1424; box-shadow: 0 8px 20px rgba(0, 0, 0, .55); }
+  .RC .line { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 10px 2px 0; flex-wrap: wrap; }
+  .RC .freq { font: 700 1.9em/1.1 ui-monospace, Menlo, Consolas, monospace; color: #7cfc9a; letter-spacing: .03em; }
+  .RC .freq small { color: #8b95a8; font-size: .55em; }
+  .RC .sub { color: #9db0cc; font-size: .85em; }
+  .RC .pad { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 6px; margin-top: 8px; }
+  .RC .big { height: 58px; font-size: 1.1em; }
+  .RC button.k { background: #3b6fd8; font-weight: 700; }
+  .RC label { margin-top: 12px; }
   .RC .row { display: flex; gap: 8px; margin: 10px 0 0; flex-wrap: wrap; }
   .RC .row > * { flex: 1; }
+  .RC .row + .row { margin-top: 6px; }
   .RC button { min-width: 0; padding: .7em 0; font-size: 1.05em; border: 0; border-radius: 10px; background: #2b3c5c; color: #fff; cursor: pointer; }
   .RC button:active { background: #3f5a8c; }
   .RC button.on { background: #2f7d4f; }
@@ -27,41 +36,45 @@ static const char pageControl[] PROGMEM = R"HTML(<STYLE>
 <H1>{{title}}</H1>
 {{{navigation}}}
 <DIV CLASS="RC">
-  <DIV CLASS="card" STYLE="text-align:center">
-    <IMG ID="scr" ALT="Radio screen" STYLE="width:100%;max-width:640px;aspect-ratio:320/170;border-radius:10px;background:#000">
-  </DIV>
-  <DIV CLASS="card">
-    <DIV CLASS="freq"><SPAN ID="freq">---</SPAN> <SMALL ID="unit"></SMALL></DIV>
-    <DIV CLASS="sub"><SPAN ID="band">-</SPAN> &middot; <SPAN ID="mode">-</SPAN> &middot; <SPAN ID="conn">connecting</SPAN></DIV>
+  <DIV CLASS="stick"><DIV CLASS="card" STYLE="margin-top:0">
+    <IMG ID="scr" ALT="Radio screen" STYLE="width:100%;max-width:640px;aspect-ratio:320/170;border-radius:8px;background:#000;display:block;margin:0 auto">
+    <DIV CLASS="line">
+      <DIV CLASS="freq"><SPAN ID="freq">---</SPAN> <SMALL ID="unit"></SMALL></DIV>
+      <DIV CLASS="sub"><SPAN ID="band">-</SPAN> &middot; <SPAN ID="mode">-</SPAN> &middot; <SPAN ID="conn">connecting</SPAN></DIV>
+    </DIV>
+  </DIV></DIV>
+  <DIV CLASS="card" STYLE="margin-top:0">
+    <LABEL STYLE="margin-top:0"><SPAN>Tuning</SPAN> &middot; <SPAN>Step:</SPAN> <SPAN ID="step">-</SPAN></LABEL>
     <DIV CLASS="row">
       <BUTTON ID="dd" TITLE="-10 steps">&laquo;</BUTTON>
       <BUTTON ID="d1" TITLE="-1 step">&lsaquo;</BUTTON>
       <BUTTON ID="u1" TITLE="+1 step">&rsaquo;</BUTTON>
       <BUTTON ID="uu" TITLE="+10 steps">&raquo;</BUTTON>
     </DIV>
-    <DIV CLASS="note">Step: <SPAN ID="step">-</SPAN></DIV>
-  </DIV>
-
-  <DIV CLASS="card">
+    <LABEL>Navigation (same as the encoder)</LABEL>
+    <DIV CLASS="pad">
+      <BUTTON ID="ncc" CLASS="big" TITLE="Rotate down: tune down / previous menu item">&#9664;</BUTTON>
+      <BUTTON ID="nck" CLASS="big k" TITLE="Single click: select / open the menu">Click</BUTTON>
+      <BUTTON ID="ncw" CLASS="big" TITLE="Rotate up: tune up / next menu item">&#9654;</BUTTON>
+    </DIV>
+    <DIV CLASS="row">
+      <BUTTON ID="nsh" TITLE="Short press (over half a second)">Short press</BUTTON>
+    </DIV>
+    <LABEL>Volume <SPAN ID="vol">-</SPAN></LABEL>
+    <INPUT TYPE="range" ID="vsl" MIN="0" MAX="63" VALUE="35">
+    <LABEL>Signal <SPAN ID="sig">-</SPAN></LABEL>
+    <DIV CLASS="bar"><DIV ID="sbar"></DIV></DIV>
     <LABEL>Go to frequency</LABEL>
     <DIV CLASS="row">
       <INPUT TYPE="text" ID="fin" INPUTMODE="decimal" PLACEHOLDER="e.g. 98.1 or 7150">
       <SELECT ID="fun" STYLE="max-width:6em"><OPTION VALUE="1000000">MHz</OPTION><OPTION VALUE="1000">kHz</OPTION></SELECT>
       <BUTTON ID="go" STYLE="max-width:5em">Go</BUTTON>
     </DIV>
-    <DIV CLASS="row">
-      <DIV><LABEL>Band</LABEL><SELECT ID="bsel">{{{bands}}}</SELECT></DIV>
-    </DIV>
+    <LABEL>Band</LABEL>
+    <SELECT ID="bsel">{{{bands}}}</SELECT>
     <DIV CLASS="row" ID="modes">
       <BUTTON DATA-M="0">FM</BUTTON><BUTTON DATA-M="1">LSB</BUTTON><BUTTON DATA-M="2">USB</BUTTON><BUTTON DATA-M="3">AM</BUTTON>
     </DIV>
-  </DIV>
-
-  <DIV CLASS="card">
-    <LABEL>Volume <SPAN ID="vol">-</SPAN></LABEL>
-    <INPUT TYPE="range" ID="vsl" MIN="0" MAX="63" VALUE="35">
-    <LABEL STYLE="margin-top:12px">Signal <SPAN ID="sig">-</SPAN></LABEL>
-    <DIV CLASS="bar"><DIV ID="sbar"></DIV></DIV>
     <DIV CLASS="note">Audio streaming is not available: the SI4732 audio goes straight to the speaker amplifier and never reaches the ESP32.</DIV>
   </DIV>
 </DIV>
@@ -105,6 +118,10 @@ static const char pageControl[] PROGMEM = R"HTML(<STYLE>
   $('d1').onclick = function() { send({ step: -1 }); };
   $('u1').onclick = function() { send({ step: 1 }); };
   $('uu').onclick = function() { send({ step: 10 }); };
+  $('ncc').onclick = function() { send({ nav: 'ccw' }); };
+  $('ncw').onclick = function() { send({ nav: 'cw' }); };
+  $('nck').onclick = function() { send({ nav: 'click' }); };
+  $('nsh').onclick = function() { send({ nav: 'short' }); };
   $('go').onclick = function() {
     var v = parseFloat($('fin').value.replace(',', '.'));
     if (isNaN(v) || v <= 0) return;

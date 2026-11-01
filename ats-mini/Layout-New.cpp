@@ -10,6 +10,7 @@
 #include "Memories.h"
 #include "NewUI.h"
 #include "NewUI2.h"
+#include "NewUIScan.h"
 
 // Palette from the user's options
 NuPal nuCurrentPalette() { return nuPalette(uiAccent, uiTextWhite, uiBgIdx); }
@@ -93,8 +94,16 @@ void drawLayoutNew()
 
   refreshMemories();
   n.mem = memCache; n.nMem = memCount;
+  n.ms = millis();
 
   const NuPal p = nuCurrentPalette();
+  if(currentCmd == CMD_SCAN)
+  {
+    static const uint8_t scanStyle[] = {nu::SCS_ANALOG, nu::SCS_SMETER, nu::SCS_VINT, nu::SCS_CLOCK, nu::SCS_NAME, nu::SCS_THIN, nu::SCS_VFD, nu::SCS_LCD, nu::SCS_NEON};
+    const int si = uiLayoutIdx - UI_NANALOG;
+    nu::layoutScan(spr, n, p, (si >= 0 && si < 9) ? scanStyle[si] : nu::SCS_ANALOG);
+  }
+  else
   switch(uiLayoutIdx)
   {
     case UI_NSMETER:  nu::layoutSMeter(spr, n, p);   break;
@@ -123,7 +132,42 @@ void drawLayoutNew()
     spr.drawString(TH.name, 319, BATT_OFFSET_Y + 17);
   }
 
-  if(currentCmd == CMD_SCAN) drawScanGraphs(currentFrequency);
-  else if(!idle) drawSideBar(currentCmd, MENU_OFFSET_X, MENU_OFFSET_Y, MENU_DELTA_X);
+  // Frequency-entry cursor and mute/squelch badges (themed boxes, like the status message)
+  if(currentCmd == CMD_FREQ)
+  {
+    // Value of the selected digit: 1 Hz .. 10 MHz in AM/SSB, 10 kHz .. 100 MHz in FM ("5" positions are 5x)
+    const uint8_t pos = getFreqInputPos();
+    const bool fm = currentMode == FM;
+    if(pos <= (fm ? 8 : 14))
+    {
+      uint32_t hz = (pos & 1) ? 5 : 1;
+      for(int i = 0 ; i < pos / 2 + (fm ? 4 : 0) ; i++) hz *= 10;
+      char b[24];
+      if(hz >= 1000000) snprintf(b, sizeof(b), "Digit: %u MHz", (unsigned)(hz / 1000000));
+      else if(hz >= 1000) snprintf(b, sizeof(b), "Digit: %u kHz", (unsigned)(hz / 1000));
+      else snprintf(b, sizeof(b), "Digit: %u Hz", (unsigned)hz);
+      nu::tag(spr, p, FontB612Bold12, b, 160, 163, p.txt, nu::D_BC, pushAndRotate);
+    }
+  }
+  if(idle)
+  {
+    if(muteOn(MUTE_MAIN)) nu::tag(spr, p, FontB612Bold12, "MUTED", 5, 163, p.bad, nu::D_BL);
+    else if(muteOn(MUTE_SQUELCH)) nu::tag(spr, p, FontB612Bold12, "SQ", 5, 163, p.bad, nu::D_BL);
+  }
+
+  if(!idle && currentCmd != CMD_SCAN) drawSideBar(currentCmd, MENU_OFFSET_X, MENU_OFFSET_Y, MENU_DELTA_X);
   drawStatus(STATUS_OFFSET_X + 40, 100);
+}
+
+// Scan screen for the Cockpit, Analog and Avionics layouts (they keep their own look, so they build the input themselves)
+void drawScanForLayout(const CkIn &in, int style)
+{
+  static NuIn n;
+  n = NuIn();
+  n.k = in;
+  n.ms = millis();
+  const float st = ckStrength(in.rssi, in.mode == 0) / 49.0f;
+  n.sN = st > 1 ? 1 : st;
+  const NuPal p = nuCurrentPalette();
+  nu::layoutScan(spr, n, p, style);
 }

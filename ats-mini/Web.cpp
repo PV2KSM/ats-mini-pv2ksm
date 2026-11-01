@@ -96,6 +96,8 @@ static struct
   int mode = -1;
   int volume = -1;
   int step = 0;          // Tuning steps to move, positive or negative
+  char nav[16];          // Encoder actions in order: 'R' rotate cw, 'r' ccw, 'e' click, 'E' short press
+  int navCount = 0;
 } radioCmd;
 
 static void webControlPage(AsyncWebServerRequest *request);
@@ -104,7 +106,7 @@ static void webApiTune(AsyncWebServerRequest *request);
 static void webLocationPage(AsyncWebServerRequest *request, const LocationInfo &shown, const char *message);
 static void webSetLocation(AsyncWebServerRequest *request);
 static void webFinancePage(AsyncWebServerRequest *request, const char *message);
-static void webApplyRadio();
+static bool webApplyRadio();
 
 struct SplashUploadState
 {
@@ -185,8 +187,8 @@ void webScreenshotTick()
 bool webTick()
 {
   otaTick();
-  webApplyRadio();
-  bool redraw = patchesTick();
+  bool redraw = webApplyRadio();
+  redraw |= patchesTick();
   std::unique_lock<std::mutex> lock(configSettings.mutex);
   if(configSettings.pending)
   {
@@ -885,6 +887,14 @@ static void webApiTune(AsyncWebServerRequest *request)
     if(!webParseInt(request, "step", -50, 50, &step)) return request->send(400, "text/plain", "Invalid step.");
     any = true;
   }
+  char navCode = 0;
+  if(request->hasParam("nav", true))
+  {
+    const String v = request->getParam("nav", true)->value();
+    if(v == "cw") navCode = 'R'; else if(v == "ccw") navCode = 'r'; else if(v == "click") navCode = 'e'; else if(v == "short") navCode = 'E';
+    else return request->send(400, "text/plain", "Invalid navigation command.");
+    any = true;
+  }
   if(!any) return request->send(400, "text/plain", "Nothing to do.");
 
   {
@@ -894,6 +904,7 @@ static void webApiTune(AsyncWebServerRequest *request)
     if(mode >= 0) radioCmd.mode = mode;
     if(vol >= 0)  radioCmd.volume = vol;
     radioCmd.step += step;
+    if(navCode && radioCmd.navCount < (int)sizeof(radioCmd.nav)) radioCmd.nav[radioCmd.navCount++] = navCode;
     radioCmd.pending = true;
   }
   request->send(200, "application/json", "{\"ok\":true}");
@@ -909,15 +920,18 @@ static void webSwitchBand(int target)
 }
 
 // Runs on the main task, so the receiver is never touched concurrently
-static void webApplyRadio()
+static bool webApplyRadio()
 {
   int64_t freq;
   int band, mode, vol, step;
+  char nav[sizeof(radioCmd.nav)];
+  int navCount;
   {
     std::lock_guard<std::mutex> lock(radioCmd.mutex);
-    if(!radioCmd.pending) return;
+    if(!radioCmd.pending) return false;
     freq = radioCmd.freq; band = radioCmd.band; mode = radioCmd.mode;
     vol = radioCmd.volume; step = radioCmd.step;
+    navCount = radioCmd.navCount; memcpy(nav, radioCmd.nav, sizeof(nav)); radioCmd.navCount = 0;
     radioCmd.pending = false;
     radioCmd.freq = -1; radioCmd.band = -1; radioCmd.mode = -1; radioCmd.volume = -1; radioCmd.step = 0;
   }
@@ -966,6 +980,16 @@ static void webApplyRadio()
     rx.setVolume(volume);
     prefsRequestSave(SAVE_SETTINGS);
   }
+
+  // Encoder actions from the Control tab: same handlers as the encoder and the Bluetooth remote
+  for(int i = 0 ; i < navCount ; i++)
+  {
+    if(nav[i] == 'R') handleRotation(1, 1);
+    else if(nav[i] == 'r') handleRotation(-1, -1);
+    else if(nav[i] == 'e') handleClick(false);
+    else if(nav[i] == 'E') handleClick(true);
+  }
+  return true;
 }
 
 static void webFinancePage(AsyncWebServerRequest *request, const char *message)
@@ -1003,12 +1027,13 @@ static void webLocationPage(AsyncWebServerRequest *request, const LocationInfo &
   uint8_t mapStyleShown = MAP_STYLE_LIGHT;
   locationGetMapCfg(mapUrlBuf, sizeof(mapUrlBuf), &mapOnShown, &mapStyleShown);
   const String mapUrlShown(mapUrlBuf);
+  const uint8_t mapSrcShown = strstr(mapUrlBuf, "tile.openstreetmap.org") ? MAP_SRC_OSM : MAP_SRC_CUSTOM;
   request->send(200, "text/html", webPage(pageLocation, pageLocationTitle, {
     {"title", pageLocationTitle}, {"message", message},
     {"icao", shown.icao}, {"lat", lat}, {"lon", lon},
     {"name", shown.name}, {"label", shown.label}, {"radius", String(shown.radiusNm)},
     {"keystate", shown.hasCartoKey ? "stored" : "not set"}, {"count", String(locationAirportCount())},
-    {"mapurl", mapUrlShown}, {"mapchecked", mapOnShown ? "checked" : ""},
+    {"mapurl", mapUrlShown}, {"srcosm", mapSrcShown == MAP_SRC_OSM ? "selected" : ""}, {"srccustom", mapSrcShown == MAP_SRC_CUSTOM ? "selected" : ""}, {"mapchecked", mapOnShown ? "checked" : ""},
     {"sdark", mapStyleShown == MAP_STYLE_DARK ? "selected" : ""}, {"slight", mapStyleShown == MAP_STYLE_LIGHT ? "selected" : ""}, {"sauto", mapStyleShown == MAP_STYLE_AUTO ? "selected" : ""}
   }, {
     {"navigation", [](String &out) { webNavigation(out, "/location"); }}
@@ -1073,6 +1098,8 @@ static void webSetLocation(AsyncWebServerRequest *request)
   if(error) return webLocationPage(request, current, (String(error) + " Nothing was saved.").c_str());
 
   String mapUrl = field("mapurl");
+  const int mapSrc = field("mapsrc").length() ? field("mapsrc").toInt() : (int)MAP_SRC_CUSTOM;
+  if(mapSrc == MAP_SRC_OSM) mapUrl = LOCATION_OSM_TILE_URL;
   const bool mapOn = request->hasParam("mapon", true);
   const char *mapError = locationRequestMapCfg(mapUrl.c_str(), mapOn, (uint8_t)(field("mapstyle").length() ? constrain(field("mapstyle").toInt(), 0, 2) : (int)MAP_STYLE_LIGHT));
   if(mapError)

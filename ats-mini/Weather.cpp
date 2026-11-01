@@ -10,7 +10,7 @@
 #include "Radar.h"
 #define WX_DATUM(d) ((lgfx::textdatum_t)(d))
 #include "Common.h"
-#define WX_PAGES (uiModern ? 4 : 5)   // The rain radar page only exists in the original look
+#define WX_PAGES 5   // The rain radar is the last page in every look
 #include "WeatherUI.h"
 #include "Utils.h"
 #include "Menu.h"
@@ -503,7 +503,7 @@ int weatherPage() { return page; }
 // Encoder click: zoom on the radar page. False = not handled (the screen closes).
 bool weatherClick()
 {
-  if(uiModern || page != 4) return false;
+  if(page != 4) return false;
   radarToggleZoom();
   return true;
 }
@@ -512,7 +512,7 @@ void weatherScroll(int16_t delta)
 {
   if(delta > 0) page = (page + 1) % WX_PAGES;
   else if(delta < 0) page = (page + WX_PAGES - 1) % WX_PAGES;
-  if(!uiModern && page == 4) radarWake();
+  if(page == 4) radarWake();
 }
 
 // Redraw ~8 times per second for the animated icons while the screen is open
@@ -521,7 +521,7 @@ bool weatherTick()
   static uint32_t shownMs = 0;
   if(!weatherIsActive()) return false;
   uint32_t now = millis();
-  if((uint32_t)(now - shownMs) >= (!uiModern && page == 4 ? 500UL : 120UL)) { shownMs = now; return true; }
+  if((uint32_t)(now - shownMs) >= (page == 4 ? 500UL : 120UL)) { shownMs = now; return true; }
   return false;
 }
 
@@ -542,7 +542,7 @@ void weatherDraw(LGFX_Sprite &spr)
   int ageMin = okMs ? (int)((millis() - okMs) / 60000UL) : 0;
 
   if(uiModern) { const NuPal np = nuCurrentPalette(); wxAcc = np.acc; wxTxt = np.txt; }
-  if(!uiModern && page == 4)
+  if(page == 4)
   {
     radarDraw(spr);
     spr.pushSprite(0, 0);
