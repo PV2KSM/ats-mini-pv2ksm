@@ -60,7 +60,7 @@ The names and titles in the Carousel and Grid menus now follow **Settings → La
 *Config → UI*: new selectors **Accent color, Text color, Background, Menu color, Menu style** (the layout list shows the new layouts).
 
 ### What changed since r30A
-- **Scan screen for every layout, each with its own model.** Drawing the Scan graph on top of each main UI layout is complex (it overlapped icons, names and meters), and the layouts are very different from each other, so **every UI layout now has its own Scan screen** instead of one generic graph. While scanning, the screen shows a large graph with the frequency, **RSSI**, **SNR**, the scale and the strongest peak. Each layout has its own look (background and colours): Neo Analog, Neo S-Meter, Vintage, Clock, Memories (station name), Minimal, VFD and LCD (segment bars), Neon, plus **Cockpit, Analog and Avionics**. The original *Default* and *S-Meter* layouts keep the classic Scan graph. *(Design sketches below; the colours on the radio may differ slightly.)*
+- **Scan screen for every layout, each with its own model.** Drawing the Scan graph on top of each main UI layout is complex (it overlapped icons, names and meters), and the layouts are very different from each other, so **every UI layout now has its own Scan screen** instead of one generic graph. While scanning, the screen shows a large graph with the frequency, **RSSI**, **SNR**, the scale and the strongest peak. Each layout has its own look (background and colours): Neo Analog, Neo S-Meter, Vintage, Clock, Memories (station name), Minimal, VFD and LCD (segment bars), Neon, plus **Cockpit, Analog and Avionics**. The original *Default* and *S-Meter* layouts keep the classic Scan graph. *(PC renders below; the colours on the radio may differ slightly.)*
 - **Frequency digit cursor** (underline on the selected digit) in all the new layouts, and **MUTED / SQ** badges that no longer overlap other items.
 - **Station names** no longer overlap (long names scroll).
 - **Status messages** (e.g. "Loading EiBi Schedule") now sit on a box with a background in every layout.
@@ -99,7 +99,7 @@ No CPU-speed option (the radio stays at 80 MHz). Japanese/Chinese are not includ
 
 ![weather](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30A/docs/pv2ksm/screenshots/r30A-weather.png)
 
-**Scan screens: one model per layout (design sketches made on a PC, not photos)** — first image: Neo Analog, Neo S-Meter, Vintage, Clock, Memories, Minimal, VFD, LCD, Neon; second part: Cockpit, Analog, Avionics
+**Scan screens: one model per layout (renders made on a PC with the same drawing code as the firmware, with sample data; not photos of the radio)** — Neo Analog, Neo S-Meter, Vintage, Clock, Memories, Minimal, VFD, LCD, Neon, Cockpit, Analog, Avionics. The original *Default* and *S-Meter* layouts keep the classic Scan graph.
 
 ![scan](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30B/docs/pv2ksm/screenshots/r30B-scan.png)
 
