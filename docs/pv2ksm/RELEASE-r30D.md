@@ -5,11 +5,11 @@
 ## Tested hardware — read first
 | Variant | Status |
 |---|---|
-| ATS-Mini, OSPI | Built by PV2KSM; r30D screens are PC renders, real-radio test in progress |
+| **ATS-Mini, OSPI** | **Tested** by PV2KSM on a real radio |
 | ATS-Mini, QSPI | Compiled only — **not tested on hardware** |
 | LilyGO T-Embed (Si473x) | Compiled only — **not tested on hardware** |
 
-Please report results in *Issues*. Not confirmed on hardware: the radar styles, city geocoding, the new weather sky, accented News text and the English/Spanish versions of the new texts.
+Please report results for QSPI / LilyGO in *Issues*.
 
 ## What's new in r30D
 
@@ -35,6 +35,16 @@ News headlines use a smooth font with accented letters. NAnalog and Vintage layo
 ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30D/docs/pv2ksm/screenshots/r30D-noticias-acentos.png)
 ![](https://raw.githubusercontent.com/PV2KSM/ats-mini-pv2ksm/pv2ksm-r30D/docs/pv2ksm/screenshots/r30D-layouts-nanalog-vintage-antes-depois.png)
 
+### 5. Turn off what you do not want
+Every service can be hidden from the radio: on the web **Weather**, **Flights** and **News** pages choose *Show on the radio: No*, and that item disappears from the radio menu. Finance cards and the radar look are also optional, so nobody is forced to use a feature they do not like.
+
 ### Fixes
+- Thanks to Dave (G8PTN) for the reports in [issue #5](https://github.com/PV2KSM/ats-mini-pv2ksm/issues/5): the layout overlaps (station/EiBi names, SQL/MUTE chips, top banner) fixed in r30C are now confirmed on the OSPI radio, and the new NAnalog and Vintage layouts follow the same frame. Please tell me if any layout still looks wrong on yours.
 - Saving the web Config page no longer reboots the radio (larger web server task stack).
 - Full PT/EN/ES review of every new text.
+
+## Files
+- `ats-mini-v2.45-ospi-r30D-ota.bin` — ATS-Mini OSPI
+- `ats-mini-v2.45-qspi-r30D-ota.bin` — ATS-Mini QSPI
+- `ats-mini-v2.45-lilygo-t-embed-r30D-ota.bin` — LilyGO T-Embed
+- `SHA256SUMS.txt`

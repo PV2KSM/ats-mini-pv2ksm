@@ -15,12 +15,17 @@ The user manual is available at <https://esp32-si4732.github.io/ats-mini/manual.
 - News screen uses a smooth font with accented letters, and a dot-matrix world map per language.
 - NAnalog and Vintage layouts share the same frame; Visual -> Flights radar in PT/EN/ES.
 
+### Fix
+
+- Layout overlaps reported by Dave (G8PTN) in issue #5 confirmed fixed on OSPI.
+
 ### Changed
 
+- Each service (Weather, Flights, News, Finance) can be hidden from the radio with a Yes/No on its web page.
 - Web navigation grouped in five sections; web server task stack raised to 8 KB (fixes a reboot when saving Config).
 - Language review of every new text (PT/EN/ES).
 
-Not hardware-tested by the author on QSPI and LilyGO. Radar styles, geocoding and the new sky were checked as PC renders and compiled; real-radio tests are reported in Issues.
+Tested by the author on an OSPI radio. Not hardware-tested on QSPI and LilyGO.
 
 ## PV2KSM r30C (2026-11-01) - News, layout fixes, full language review
 
