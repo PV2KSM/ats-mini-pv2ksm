@@ -26,6 +26,7 @@
 #include <math.h>
 #include <string.h>
 #include "I18n.h"
+#include "RadarStyles.h"
 
 #if FLIGHTS_DEBUG
 #define FLOG(...) Serial.printf(__VA_ARGS__)
@@ -444,6 +445,54 @@ static void dirText(char *out, size_t sz, float bearing)
   snprintf(out, sz, "%s", dirs[((int)(deg + 22.5f) / 45) & 7]);
 }
 
+// Detail card (opened with a click), on the side opposite to the selected aircraft
+static void drawInfoCard(LGFX_Sprite &spr, const Aircraft &s, int selX)
+{
+  const int cx = MAP_W / 2;
+  const uint16_t cDim = C565(170, 180, 190), cTxt = 0xFFFF, cHdr = C565(0, 200, 255);
+  char buf[64], altS[10], dirS[4];
+  altText(altS, sizeof(altS), s.altFt);
+  dirText(dirS, sizeof(dirS), s.bearing);
+  const int cw = 150, ch = 150;
+  const int x0 = selX >= cx ? 4 : MAP_W - 4 - cw;
+  const int y0 = 18;
+  chip(spr, x0, y0, cw, ch);
+  spr.fillRectAlpha(x0, y0, cw, ch, 60, (uint32_t)0x000000);
+  spr.drawRect(x0, y0, cw, ch, C565(110, 140, 170));
+  const uint16_t ac = altColor(s.altFt);
+  spr.fillRect(x0 + 1, y0 + 1, 4, ch - 2, ac);
+
+  spr.setTextDatum(TL_DATUM);
+  spr.setTextColor(cTxt);
+  spr.drawString(s.callsign, x0 + 12, y0 + 5, FONT_LARGE);
+  snprintf(buf, sizeof(buf), "%s%s%s", s.reg, (s.reg[0] && s.type[0]) ? "  " : "", s.type);
+  spr.setTextColor(cHdr);
+  spr.drawString(buf[0] ? buf : "-", x0 + 12, y0 + 33, FONT_SMALL);
+
+  char vsS[16];
+  if(s.hasVs) snprintf(vsS, sizeof(vsS), "%+d fpm", s.vs); else snprintf(vsS, sizeof(vsS), "-");
+  char rows[5][24];
+  const char *const names[5] = {tr(T_FL_ALT), tr(T_FL_SPD), tr(T_FL_HDG), tr(T_FL_VS), tr(T_FL_DIST)};
+  if(s.altFt < 0) snprintf(rows[0], sizeof(rows[0]), "%s", tr(T_FL_ON_GROUND));
+  else if(s.altFt >= 18000) snprintf(rows[0], sizeof(rows[0]), "%s", altS);
+  else snprintf(rows[0], sizeof(rows[0]), "%d ft", s.altFt);
+  snprintf(rows[1], sizeof(rows[1]), "%d kt", s.speedKt);
+  snprintf(rows[2], sizeof(rows[2]), "%03d", s.track);
+  snprintf(rows[3], sizeof(rows[3]), "%s", vsS);
+  snprintf(rows[4], sizeof(rows[4]), "%.1f nm %s", s.distNm, dirS);
+  for(int k = 0 ; k < 5 ; k++)
+  {
+    const int yy = y0 + 52 + k * 15;
+    spr.setTextColor(cDim);
+    spr.drawString(names[k], x0 + 12, yy, FONT_SMALL);
+    spr.setTextColor(k == 0 ? ac : cTxt);
+    spr.drawString(rows[k], x0 + 56, yy, FONT_SMALL);
+  }
+  spr.setTextColor(cDim);
+  snprintf(buf, sizeof(buf), tr(T_FL_CLOSE), s.id);
+  spr.drawString(buf, x0 + 10, y0 + ch - 13, FONT_DEFAULT);
+}
+
 void flightsDraw(LGFX_Sprite &spr)
 {
   const int cx = MAP_W / 2, cy = MAP_H / 2;
@@ -460,6 +509,36 @@ void flightsDraw(LGFX_Sprite &spr)
   const int radius = loc.radiusNm;
 
   spr.fillSprite(0x0000);
+
+  // ---- Cockpit-style radar looks (chosen on the web page): no basemap, nothing downloaded ----
+  if(uiRadarStyle != 0)
+  {
+    rd::Ac ra[FLIGHTS_MAX];
+    for(int i = 0 ; i < n ; i++)
+    {
+      const Aircraft &q = snap[i];
+      ra[i].distNm = q.distNm; ra[i].bearing = q.bearing; ra[i].altFt = q.altFt; ra[i].vs = q.vs; ra[i].hasVs = q.hasVs;
+      ra[i].track = q.track; ra[i].speedKt = q.speedKt;
+      strlcpy(ra[i].callsign, q.callsign, sizeof(ra[i].callsign)); strlcpy(ra[i].type, q.type, sizeof(ra[i].type));
+    }
+    rd::In rin{ra, n, total > n ? total : n, selIdx, radius, loc.label, st, 0.0f};
+    rd::draw(spr, uiRadarStyle, rin);
+    if(n == 0)
+    {
+      spr.setTextDatum(MC_DATUM);
+      spr.setTextColor(C565(170, 180, 190));
+      spr.drawString(okMs ? tr(T_FL_NONE) : (st[0] ? st : tr(T_WAITING)), 160, 150, FONT_DEFAULT);
+      spr.setTextDatum(TL_DATUM);
+      return;
+    }
+    if(showInfo)
+    {
+      const Aircraft &s = snap[selIdx];
+      const int sx = cx + (int)(s.distNm * ((float)MAP_R / (float)radius) * sinf(s.bearing));
+      drawInfoCard(spr, s, (uiRadarStyle == rd::STYLE_ATCAS || uiRadarStyle == rd::STYLE_BTCAS) ? 0 : sx);   // Bezel looks: card over the readout on the right
+    }
+    return;
+  }
 
   // ---- Basemap ----
   const bool haveMap = mapDraw(spr, 0, 0);
@@ -628,43 +707,5 @@ void flightsDraw(LGFX_Sprite &spr)
     return;
   }
 
-  // ---- Detail card (opened with a click), on the side opposite to the selected aircraft ----
-  const int cw = 150, ch = 150;
-  const int x0 = selX >= cx ? 4 : MAP_W - 4 - cw;
-  const int y0 = 18;
-  chip(spr, x0, y0, cw, ch);
-  spr.fillRectAlpha(x0, y0, cw, ch, 60, (uint32_t)0x000000);
-  spr.drawRect(x0, y0, cw, ch, C565(110, 140, 170));
-  const uint16_t ac = altColor(s.altFt);
-  spr.fillRect(x0 + 1, y0 + 1, 4, ch - 2, ac);
-
-  spr.setTextDatum(TL_DATUM);
-  spr.setTextColor(cTxt);
-  spr.drawString(s.callsign, x0 + 12, y0 + 5, FONT_LARGE);
-  snprintf(buf, sizeof(buf), "%s%s%s", s.reg, (s.reg[0] && s.type[0]) ? "  " : "", s.type);
-  spr.setTextColor(cHdr);
-  spr.drawString(buf[0] ? buf : "-", x0 + 12, y0 + 33, FONT_SMALL);
-
-  char vsS[16];
-  if(s.hasVs) snprintf(vsS, sizeof(vsS), "%+d fpm", s.vs); else snprintf(vsS, sizeof(vsS), "-");
-  char rows[5][24];
-  const char *const names[5] = {tr(T_FL_ALT), tr(T_FL_SPD), tr(T_FL_HDG), tr(T_FL_VS), tr(T_FL_DIST)};
-  if(s.altFt < 0) snprintf(rows[0], sizeof(rows[0]), "%s", tr(T_FL_ON_GROUND));
-  else if(s.altFt >= 18000) snprintf(rows[0], sizeof(rows[0]), "%s", altS);
-  else snprintf(rows[0], sizeof(rows[0]), "%d ft", s.altFt);
-  snprintf(rows[1], sizeof(rows[1]), "%d kt", s.speedKt);
-  snprintf(rows[2], sizeof(rows[2]), "%03d", s.track);
-  snprintf(rows[3], sizeof(rows[3]), "%s", vsS);
-  snprintf(rows[4], sizeof(rows[4]), "%.1f nm %s", s.distNm, dirS);
-  for(int k = 0 ; k < 5 ; k++)
-  {
-    const int yy = y0 + 52 + k * 15;
-    spr.setTextColor(cDim);
-    spr.drawString(names[k], x0 + 12, yy, FONT_SMALL);
-    spr.setTextColor(k == 0 ? ac : cTxt);
-    spr.drawString(rows[k], x0 + 56, yy, FONT_SMALL);
-  }
-  spr.setTextColor(cDim);
-  snprintf(buf, sizeof(buf), tr(T_FL_CLOSE), s.id);
-  spr.drawString(buf, x0 + 10, y0 + ch - 13, FONT_DEFAULT);
+  drawInfoCard(spr, s, selX);
 }

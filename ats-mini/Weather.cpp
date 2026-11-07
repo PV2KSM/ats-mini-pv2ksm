@@ -38,6 +38,16 @@ extern const uint8_t caBundleEnd[] asm("_binary_x509_crt_bundle_end");
 
 static SemaphoreHandle_t mtx = nullptr;
 static WxData data;                       // Last good data (valid=false until the first fetch works)
+// Temperatures are fetched in Celsius; Fahrenheit is applied to the copy that gets drawn
+static void wxApplyUnit(WxData &w)
+{
+  if(uiTempUnit != 1 || !w.valid) return;
+  auto f = [](int c) { return (int)lroundf(c * 1.8f + 32.0f); };
+  w.temp = f(w.temp); w.feels = f(w.feels);
+  for(int i = 0 ; i < w.nDays && i < 6 ; i++)   { w.days[i].tmax = f(w.days[i].tmax); w.days[i].tmin = f(w.days[i].tmin); }
+  for(int i = 0 ; i < w.nHours && i < 12 ; i++) w.hours[i].temp = f(w.hours[i].temp);
+}
+
 static char status[40] = "";
 static uint32_t lastOkMs = 0;
 static uint32_t version = 0;
@@ -153,6 +163,90 @@ static bool parseWeather(JsonDocument &doc, WxData &w)
   return true;
 }
 
+// ---- City -> position (Open-Meteo geocoding) ---------------------------------
+
+static void asciiFold(char *dst, size_t size, const char *src)
+{
+  static const char *lat1 = "AAAAAAACEEEEIIIIDNOOOOO*OUUUUYTsaaaaaaaceeeeiiiidnooooo/ouuuuyty";   // U+00C0..U+00FF
+  size_t n = 0;
+  for( ; *src && n + 1 < size ; src++)
+  {
+    unsigned char ch = *src;
+    if(ch == 0xC3 && src[1]) { unsigned char d = (unsigned char)*++src; if(d >= 0x80 && d <= 0xBF) ch = lat1[d - 0x80]; else continue; }
+    else if(ch >= 0x80) continue;
+    if(ch < 32 || ch == '"' || ch == '<' || ch == '>' || ch == '&') continue;
+    dst[n++] = ch;
+  }
+  dst[n] = 0;
+}
+
+static void urlEncode(char *dst, size_t size, const char *src)
+{
+  static const char hex[] = "0123456789ABCDEF";
+  size_t n = 0;
+  for( ; *src && n + 4 < size ; src++)
+  {
+    unsigned char ch = *src;
+    if(isalnum(ch) || ch == '-' || ch == '.' || ch == '_') dst[n++] = ch;
+    else if(ch == ' ') dst[n++] = '+';
+    else { dst[n++] = '%'; dst[n++] = hex[ch >> 4]; dst[n++] = hex[ch & 15]; }
+  }
+  dst[n] = 0;
+}
+
+// "City" or "City, BR" (2-letter country code). Returns true when the position was found and stored.
+static bool geocodeCity(const WxPlace &wp)
+{
+  char cityPart[40], cc[3] = "";
+  strlcpy(cityPart, wp.city, sizeof(cityPart));
+  char *comma = strrchr(cityPart, ',');
+  if(comma)
+  {
+    const char *q = comma + 1;
+    while(*q == ' ') q++;
+    if(isalpha((unsigned char)q[0]) && isalpha((unsigned char)q[1]) && !q[2]) { cc[0] = toupper((unsigned char)q[0]); cc[1] = toupper((unsigned char)q[1]); cc[2] = 0; *comma = 0; }
+  }
+  char enc[128];
+  urlEncode(enc, sizeof(enc), cityPart);
+  char url[260];
+  snprintf(url, sizeof(url), "https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1&language=en&format=json%s%s",
+           enc, cc[0] ? "&countryCode=" : "", cc);
+
+  NetworkClientSecure client;
+  client.setCACertBundle(caBundleStart, caBundleEnd - caBundleStart);
+  client.setHandshakeTimeout(10);
+  HTTPClient http;
+  http.setConnectTimeout(10000);
+  http.setTimeout(15000);
+  http.setUserAgent(getUserAgent());
+  http.setReuse(false);
+  if(!http.begin(client, url)) { setStatus("Falha http.begin"); return false; }
+  http.addHeader("Accept", "application/json");
+  int code = http.GET();
+  if(code != HTTP_CODE_OK)
+  {
+    char msg[40];
+    if(code > 0) snprintf(msg, sizeof(msg), tr(T_HTTP_ERR), code); else snprintf(msg, sizeof(msg), tr(T_NET_ERR), code);
+    http.end();
+    setStatus(msg);
+    return false;
+  }
+  WxSink sink;
+  int wrote = http.writeToStream(&sink);
+  http.end();
+  if(sink.overflow || wrote < 0 || sink.len == 0) { setStatus(tr(T_READ_FAIL)); return false; }
+  JsonDocument doc;
+  if(deserializeJson(doc, body, sink.len)) { setStatus(tr(T_JSON_ERR)); return false; }
+  JsonObject r = doc["results"][0];
+  if(r.isNull() || !r["latitude"].is<float>() || !r["longitude"].is<float>()) { setStatus(tr(T_CITY_NF)); return false; }
+  char nm[28], full[28];
+  asciiFold(nm, sizeof(nm), r["name"] | "");
+  const char *country = r["country_code"] | "";
+  if(country[0]) snprintf(full, sizeof(full), "%.22s, %.2s", nm, country); else strlcpy(full, nm, sizeof(full));
+  wxPlaceStore(wp.city, full, r["latitude"].as<float>(), r["longitude"].as<float>());
+  return true;
+}
+
 static void fetchWeatherLocked();
 static void fetchWeather()
 {
@@ -168,6 +262,18 @@ static void fetchWeatherLocked()
   if(WiFi.status() != WL_CONNECTED) { setStatus(tr(T_NO_WIFI)); return; }
   if(!clockGetDate(nullptr, nullptr, nullptr, nullptr)) { setStatus(tr(T_NO_TIME)); return; }
   if(!allocBody()) { setStatus(tr(T_NO_MEM)); return; }
+  // Weather uses its own city when one is set; otherwise it follows the observer position
+  WxPlace wp = wxPlaceGet();
+  if(wp.city[0])
+  {
+    if(!wp.resolved)
+    {
+      if(!geocodeCity(wp)) return;
+      wp = wxPlaceGet();
+      if(!wp.resolved) return;
+    }
+    loc.lat = wp.lat; loc.lon = wp.lon;
+  }
 
   char url[480];
   snprintf(url, sizeof(url),
@@ -431,8 +537,9 @@ bool weatherGetSnapshot(WxData *out, char *st, size_t stSize)
   lock();
   *out = data;
   if(st) strlcpy(st, status, stSize);
-  bool ok = data.valid;
+  bool ok = data.valid && (uiSvcMask & SVC_WEATHER);   // Weather switched off: no weather card on the other screens
   unlock();
+  wxApplyUnit(*out);
   return ok;
 }
 
@@ -535,10 +642,14 @@ void weatherDraw(LGFX_Sprite &spr)
   memcpy(st, status, sizeof(st));
   okMs = lastOkMs;
   unlock();
+  wxApplyUnit(snap);
 
   LocationInfo loc = locationGet();
   char place[40];
-  snprintf(place, sizeof(place), "%s  %s", loc.label[0] ? loc.label : "", loc.name);
+  const WxPlace wpl = wxPlaceGet();
+  if(wpl.city[0] && wpl.resolved) snprintf(place, sizeof(place), "%s", wpl.name);
+  else if(wpl.city[0]) snprintf(place, sizeof(place), "%s", wpl.city);
+  else snprintf(place, sizeof(place), "%s  %s", loc.label[0] ? loc.label : "", loc.name);
   int ageMin = okMs ? (int)((millis() - okMs) / 60000UL) : 0;
 
   if(uiModern) { const NuPal np = nuCurrentPalette(); wxAcc = np.acc; wxTxt = np.txt; }

@@ -7,10 +7,12 @@
 #include "Ota.h"
 #include "BleMode.h"
 #include "Menu.h"
-#include "News.h"
 #include "Flights.h"
+#include "FontB612.h"
+#include "RadarStyles.h"
 #include "Weather.h"
 #include "Finance.h"
+#include "News.h"
 #include "NetStatus.h"
 #include "Memories.h"
 #include "Patches.h"
@@ -138,6 +140,20 @@ Band *getCurrentBand() { return(&bands[bandIdx]); }
 #define MENU_SETTINGS    19
 
 int8_t menuIdx = MENU_VOLUME;
+uint8_t uiSvcMask = 0x0F;
+
+// Functions the user turned off on the web page are skipped by the menu
+static bool menuVisible(int i)
+{
+  switch(i)
+  {
+    case MENU_FLIGHTS: return (uiSvcMask & SVC_FLIGHTS) != 0;
+    case MENU_NEWS:    return (uiSvcMask & SVC_NEWS) != 0;
+    case MENU_WEATHER: return (uiSvcMask & SVC_WEATHER) != 0;
+    case MENU_FINANCE: return (uiSvcMask & SVC_FINANCE) != 0;
+    default:           return true;
+  }
+}
 
 static const char *menu[] =
 {
@@ -187,7 +203,9 @@ static const char *menu[] =
 #define MENU_BLEMODE      17
 #define MENU_WIFIMODE     18
 #define MENU_LANG         19
-#define MENU_ABOUT        20
+#define MENU_CPUSPEED     20
+#define MENU_TEMPUNIT     21
+#define MENU_ABOUT        22
 
 // Visual menu: layout, theme and colours
 #define VIS_UI            0
@@ -197,7 +215,8 @@ static const char *menu[] =
 #define VIS_BGCOL         4
 #define VIS_MENUCOL       5
 #define VIS_MENUSTYLE     6
-static const char *visualItems[] = { "UI Layout", "Theme", "Accent", "Text color", "Background", "Menu color", "Menu style" };
+#define VIS_FLIGHTS       7
+static const char *visualItems[] = { "UI Layout", "Theme", "Accent", "Text color", "Background", "Menu color", "Menu style", "Flights radar" };
 int8_t visualIdx = VIS_UI;
 
 
@@ -228,6 +247,8 @@ static const char *settings[] =
   "Bluetooth",
   "Wi-Fi",
   "Language",
+  "CPU speed",
+  "Temp unit",
   "About",
 };
 
@@ -383,6 +404,14 @@ static uint8_t dateTimeSecond;
 //
 uint8_t uiLayoutIdx = 0;
 uint8_t uiAccent = 0, uiTextWhite = 1, uiBgIdx = 0, uiMenuColor = 0, uiMenuStyle = 0;
+uint8_t uiRadarStyle = 0;   // Map by default
+uint8_t uiTempUnit = 0;   // Celsius by default
+uint8_t uiCpuIdx = 0;   // 80 MHz by default, like the original firmware
+void applyCpuSpeed()
+{
+  static const uint32_t mhz[3] = {80, 160, 240};
+  setCpuFrequencyMhz(mhz[uiCpuIdx > 2 ? 0 : uiCpuIdx]);
+}
 static uint8_t nuOpt = 0;   // Which colour/style option the CMD_NUOPT screen edits
 const char *const uiLayoutDesc[] =
 { "Default", "S-Meter", "Cockpit", "Analog", "Avionics", "Neo Analog", "Neo S-Meter", "Vintage", "Clock", "Memories", "Minimal", "VFD", "LCD", "Neon" };
@@ -804,7 +833,10 @@ static uint8_t *nuOptValue(int *count, const char *const **names, const char **t
     case 1: *count = NU_TEXTS; *names = nuTextNames; *title = "Text color"; return &uiTextWhite;
     case 2: *count = NU_BGS; *names = nuBgName; *title = "Background"; return &uiBgIdx;
     case 3: *count = 8; *names = nuMenuColNames; *title = "Menu color"; return &uiMenuColor;
-    default: *count = 3; *names = nuMenuStyleNames; *title = "Menu style"; return &uiMenuStyle;
+    case 4: *count = 3; *names = nuMenuStyleNames; *title = "Menu style"; return &uiMenuStyle;
+    case 7: { static const char *const rs[5] = {"Map", "A32X", "ATCAS", "BTCAS", "B7X"}; *count = 5; *names = rs; *title = "Flights radar"; return &uiRadarStyle; }
+    case 6: { static const char *const tu[2] = {"Celsius", "Fahrenheit"}; *count = 2; *names = tu; *title = "Temp unit"; return &uiTempUnit; }
+    default: { static const char *const cpu[3] = {"80 MHz", "160 MHz", "240 MHz"}; *count = 3; *names = cpu; *title = "CPU speed"; return &uiCpuIdx; }
   }
 }
 
@@ -815,6 +847,7 @@ static void doNuOpt(int16_t enc)
   if(*v >= count) *v = 0;
   // Text color is listed Accent, White but stored as uiTextWhite (1 = white), so the list index is the stored value
   *v = wrap_range(*v, enc, 0, count - 1);
+  if(nuOpt == 5 && enc) applyCpuSpeed();
   prefsRequestSave(SAVE_SETTINGS);
 }
 
@@ -1259,7 +1292,24 @@ void doBandwidth(int16_t enc)
 
 static void doMenu(int16_t enc)
 {
-  menuIdx = wrap_range(menuIdx, enc, 0, LAST_ITEM(menu));
+  const int dir = enc < 0 ? -1 : 1;
+  for(int n = abs(enc) ; n > 0 ; n--)
+  {
+    int guard = 0;
+    do menuIdx = wrap_range(menuIdx, dir, 0, LAST_ITEM(menu));
+    while(!menuVisible(menuIdx) && ++guard < (int)ITEM_COUNT(menu));
+  }
+}
+
+// Visible items only (and the position of the current one inside that list)
+static int menuVisibleList(const char **out, int &cur)
+{
+  int guard = 0;
+  while(!menuVisible(menuIdx) && guard++ < (int)ITEM_COUNT(menu)) menuIdx = wrap_range(menuIdx, 1, 0, LAST_ITEM(menu));
+  int n = 0; cur = 0;
+  for(int i = 0 ; i < (int)ITEM_COUNT(menu) ; i++)
+    if(menuVisible(i)) { if(i == menuIdx) cur = n; out[n++] = menu[i]; }
+  return n;
 }
 
 static void clickMenu(int cmd, bool shortPress)
@@ -1330,6 +1380,7 @@ static void clickVisual(int item, bool shortPress)
     case VIS_BGCOL:     nuOpt = 2; currentCmd = CMD_NUOPT; break;
     case VIS_MENUCOL:   nuOpt = 3; currentCmd = CMD_NUOPT; break;
     case VIS_MENUSTYLE: nuOpt = 4; currentCmd = CMD_NUOPT; break;
+    case VIS_FLIGHTS:   nuOpt = 7; currentCmd = CMD_NUOPT; break;
   }
 }
 
@@ -1374,6 +1425,8 @@ static void clickSettings(int cmd, bool shortPress)
     case MENU_FM_STEREO:  currentCmd = CMD_FM_STEREO; break;
     case MENU_DSP_PATCHES: currentCmd = CMD_DSP_PATCHES; break;
     case MENU_LANG:       currentCmd = CMD_LANG;      break;
+    case MENU_CPUSPEED:   nuOpt = 5; currentCmd = CMD_NUOPT; break;
+    case MENU_TEMPUNIT:   nuOpt = 6; currentCmd = CMD_NUOPT; break;
     case MENU_ABOUT:      currentCmd = CMD_ABOUT;     break;
     case MENU_UPDATEFW:
       updateFwIdx = 0;
@@ -1606,8 +1659,10 @@ static void drawListMenu(const char *title, const char *const *items, int count,
 
 static void drawMenu(int x, int y, int sx)
 {
-  if(uiModern) drawIconMenu("Menu", menu, ITEM_COUNT(menu), menuIdx);
-  else drawListMenu("Menu", menu, ITEM_COUNT(menu), menuIdx, x, y, sx);
+  const char *vis[ITEM_COUNT(menu)]; int cur;
+  const int n = menuVisibleList(vis, cur);
+  if(uiModern) drawIconMenu("Menu", vis, n, cur);
+  else drawListMenu("Menu", vis, n, cur, x, y, sx);
 }
 
 static void drawVisual(int x, int y, int sx)
@@ -1907,10 +1962,38 @@ static void drawUILayout(int x, int y, int sx)
   }
 }
 
+// Background preview for the "Flights radar" option: demo traffic drawn in the style being chosen
+static void drawRadarPreview(int style)
+{
+  static const rd::Ac demo[6] = {
+    {14.0f, 0.60f, 24000, 0, false, 70, 430, "TAM3045", "A320"}, {26.0f, 2.10f, 11000, -1200, true, 250, 380, "GLO1234", "B738"},
+    {8.0f, 3.60f, 3500, 900, true, 20, 240, "AZU4521", "AT76"}, {33.0f, 4.80f, 36000, 0, true, 110, 470, "UAE262", "B77W"},
+    {19.0f, 5.60f, 8200, 1500, true, 330, 310, "PTB123", "E195"}, {4.0f, 1.30f, -1, 0, false, 0, 0, "N512PV", "C172"}};
+  rd::In in{demo, 6, 6, 0, 40, "PV2", "", 0.0f};
+  if(style != 0) { rd::draw(spr, style, in); return; }
+  // Map look: dark ground, grid, range rings, aircraft markers with callsigns
+  const int cx = 160, cy = 85;
+  spr.fillRect(0, 0, 320, 170, rd::rgb(8, 18, 30));
+  for(int g = 0 ; g < 320 ; g += 40) spr.drawFastVLine(g, 0, 170, rd::rgb(18, 34, 50));
+  for(int g = 0 ; g < 170 ; g += 40) spr.drawFastHLine(0, g, 320, rd::rgb(18, 34, 50));
+  for(int r = 1 ; r <= 3 ; r++) spr.drawCircle(cx, cy, r * 28, rd::rgb(40, 80, 110));
+  spr.fillCircle(cx, cy, 3, rd::rgb(80, 220, 120));
+  spr.setTextColor(rd::rgb(230, 230, 230)); spr.setTextDatum(TL_DATUM);
+  for(int i = 0 ; i < 6 ; i++)
+  {
+    const int px = cx + (int)(sinf(demo[i].bearing) * demo[i].distNm * 84.0f / 40.0f * 1.0f);
+    const int py = cy - (int)(cosf(demo[i].bearing) * demo[i].distNm * 84.0f / 40.0f * 1.0f);
+    const uint16_t c = i == 0 ? rd::rgb(255, 200, 40) : rd::rgb(90, 190, 255);
+    spr.fillTriangle(px, py - 5, px - 4, py + 4, px + 4, py + 4, c);
+    spr.drawString(demo[i].callsign, px + 6, py - 4, 1);
+  }
+}
+
 static void drawNuOpt(int x, int y, int sx)
 {
   int count; const char *const *names; const char *title;
   uint8_t *v = nuOptValue(&count, &names, &title);
+  if(nuOpt == 7) drawRadarPreview(*v < 5 ? *v : 0);
   drawCommon(title, x, y, sx, true);
   for(int i=-2 ; i<3 ; i++)
   {

@@ -30,9 +30,15 @@ static char pendingCurrency[4] = "";
 static bool havePending = false;
 
 static bool valid = false;
-static float usdLocal = 0, eurLocal = 0, btcUsd = 0, btcLocal = 0;
+// Items that can be shown: 0 USD, 1 EUR, 2 GBP (fiat), 3 BTC, 4 ETH (crypto)
+#define FIN_ITEMS 5
+static const char *const ITEM_CODE[FIN_ITEMS] = {"USD", "EUR", "GBP", "BTC", "ETH"};
+static uint8_t slots[3] = {0, 1, 3};
+static uint8_t pendingSlots[3];
+static bool havePendingSlots = false;
+static float itemLocal[FIN_ITEMS], itemUsd[FIN_ITEMS];
+static bool itemDer[FIN_ITEMS];
 static char rateDate[11] = "";
-static bool rateDerived = false, eurDerived = false;
 static char status[40] = "";
 static uint32_t lastOkMs = 0;
 static uint32_t version = 0, shownVersion = 0xFFFFFFFF;
@@ -56,6 +62,26 @@ void financeGetCurrency(char *out, size_t size)
   lock();
   strlcpy(out, currency, size);
   unlock();
+}
+
+void financeGetSlots(uint8_t *out)
+{
+  lock();
+  memcpy(out, havePendingSlots ? pendingSlots : slots, 3);
+  unlock();
+}
+
+const char *financeItemName(int item) { return item >= 0 && item < FIN_ITEMS ? ITEM_CODE[item] : ""; }
+int financeItemCount() { return FIN_ITEMS; }
+
+const char *financeRequestSlots(const uint8_t *s)
+{
+  for(int i = 0 ; i < 3 ; i++) if(s[i] >= FIN_ITEMS) return "Unknown finance item.";
+  lock();
+  memcpy(pendingSlots, s, 3);
+  havePendingSlots = true;
+  unlock();
+  return nullptr;
 }
 
 const char *financeRequestCurrency(const char *code)
@@ -82,10 +108,10 @@ const char *financeRequestCurrency(const char *code)
 
 // ---- Fetch -----------------------------------------------------------------
 
-static bool fetchSpot(const char *quote, float *out, char *err, size_t errSize)
+static bool fetchSpot(const char *coin, const char *quote, float *out, char *err, size_t errSize)
 {
   char url[96], body[256];
-  snprintf(url, sizeof(url), "https://api.coinbase.com/v2/prices/BTC-%s/spot", quote);
+  snprintf(url, sizeof(url), "https://api.coinbase.com/v2/prices/%s-%s/spot", coin, quote);
   if(netFetchText(url, body, sizeof(body), err, errSize, "application/json") != 200) return false;
   JsonDocument doc;
   if(deserializeJson(doc, body)) { snprintf(err, errSize, "%s", tr(T_JSON_ERR)); return false; }
@@ -101,61 +127,93 @@ static void fetchFinance()
 {
   char cur[4];
   financeGetCurrency(cur, sizeof(cur));
-  const bool isUsd = !strcmp(cur, "USD"), isEur = !strcmp(cur, "EUR");
+  const bool isUsd = !strcmp(cur, "USD");
+  uint8_t sl[3];
+  financeGetSlots(sl);
+  bool need[FIN_ITEMS] = {false};
+  for(int i = 0 ; i < 3 ; i++) need[sl[i]] = true;
   char err[40] = "";
 
-  float bUsd = 0, bLoc = 0, rate = 0, eurPerUsd = 0;
+  // Official daily rates (ECB via Frankfurter): the local currency, euro and pound per US dollar
+  float rate = isUsd ? 1.0f : 0, per[FIN_ITEMS] = {0};
   char date[11] = "";
-  bool derived = false;
-
-  if(!fetchSpot("USD", &bUsd, err, sizeof(err))) { setStatus(err); return; }
-
-  // Official daily rates (ECB via Frankfurter): the local currency and the euro, per US dollar
   {
     char url[128], body[320], e2[40];
-    if(isUsd || isEur) snprintf(url, sizeof(url), "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR");
-    else snprintf(url, sizeof(url), "https://api.frankfurter.dev/v1/latest?base=USD&symbols=%s,EUR", cur);
+    char syms[16] = "";
+    auto add = [&](const char *code) { if(strcmp(code, "USD") && !strstr(syms, code)) { if(syms[0]) strlcat(syms, ",", sizeof(syms)); strlcat(syms, code, sizeof(syms)); } };
+    add(cur); add("EUR"); add("GBP");
+    snprintf(url, sizeof(url), "https://api.frankfurter.dev/v1/latest?base=USD&symbols=%s", syms);
     if(netFetchText(url, body, sizeof(body), e2, sizeof(e2), "application/json") == 200)
     {
       JsonDocument doc;
       if(!deserializeJson(doc, body))
       {
-        eurPerUsd = doc["rates"]["EUR"] | 0.0f;
         if(!isUsd) rate = doc["rates"][cur] | 0.0f;
+        per[1] = doc["rates"]["EUR"] | 0.0f;
+        per[2] = doc["rates"]["GBP"] | 0.0f;
         strlcpy(date, doc["date"] | "", sizeof(date));
       }
     }
   }
 
-  if(isUsd) { rate = 1.0f; bLoc = bUsd; }
-  else
-  {
-    if(!fetchSpot(cur, &bLoc, err, sizeof(err)))
+  // Bitcoin in dollars and in the local currency: needed for the Bitcoin card and as a fallback for the rates
+  float bUsd = 0, bLoc = 0;
+  bool haveBtc = false;
+  auto btc = [&]() -> bool {
+    if(haveBtc) return true;
+    if(!fetchSpot("BTC", "USD", &bUsd, err, sizeof(err))) return false;
+    if(isUsd) bLoc = bUsd;
+    else if(!fetchSpot("BTC", cur, &bLoc, err, sizeof(err)))
     {
-      // Currency not quoted against Bitcoin: derive it from the dollar rate
-      if(rate > 0) bLoc = bUsd * rate;
-      else { setStatus(err); return; }
+      if(rate > 0) bLoc = bUsd * rate; else return false;   // Not quoted against Bitcoin: derive it from the dollar rate
     }
-    if(!(rate > 0)) { rate = bLoc / bUsd; derived = true; }   // Rate from the Bitcoin prices
+    haveBtc = true;
+    return true;
+  };
+
+  bool derivedRate = false;
+  if(!(rate > 0))
+  {
+    if(!btc()) { setStatus(err); return; }
+    rate = bLoc / bUsd;
+    derivedRate = true;
   }
 
-  // One euro in the local currency
-  float eurL = 0;
-  bool eurDer = false;
-  if(isEur) eurL = 1.0f;
-  else if(eurPerUsd > 0) eurL = rate / eurPerUsd;
-  else
+  float val[FIN_ITEMS] = {0}, usd[FIN_ITEMS] = {0};
+  bool der[FIN_ITEMS] = {false};
+  int got = 0;
+  for(int i = 0 ; i < FIN_ITEMS ; i++)
   {
-    float bEur = 0;
-    char e3[40];
-    if(fetchSpot("EUR", &bEur, e3, sizeof(e3)) && bEur > 0) { eurL = bLoc / bEur; eurDer = true; }
+    if(!need[i]) continue;
+    if(i <= 2)
+    {
+      if(!strcmp(ITEM_CODE[i], cur)) { val[i] = 1.0f; got++; }
+      else if(i == 0) { val[i] = rate; der[i] = derivedRate; got++; }
+      else if(per[i] > 0) { val[i] = rate / per[i]; got++; }
+      else
+      {
+        float b = 0;                                         // Derive from Bitcoin prices
+        char e3[40];
+        if(btc() && fetchSpot("BTC", ITEM_CODE[i], &b, e3, sizeof(e3)) && b > 0) { val[i] = bLoc / b; der[i] = true; got++; }
+      }
+    }
+    else if(i == 3) { if(btc()) { val[i] = bLoc; usd[i] = bUsd; got++; } }
+    else
+    {
+      float eu = 0, el = 0;
+      if(fetchSpot("ETH", "USD", &eu, err, sizeof(err)))
+      {
+        if(isUsd) el = eu;
+        else { char e4[40]; if(!fetchSpot("ETH", cur, &el, e4, sizeof(e4))) el = eu * rate; }
+        val[i] = el; usd[i] = eu; got++;
+      }
+    }
   }
+  if(!got) { setStatus(err[0] ? err : tr(T_UNKNOWN_ERR)); return; }
 
   lock();
-  usdLocal = rate; eurLocal = eurL; btcUsd = bUsd; btcLocal = bLoc;
+  for(int i = 0 ; i < FIN_ITEMS ; i++) { itemLocal[i] = val[i]; itemUsd[i] = usd[i]; itemDer[i] = der[i]; }
   strlcpy(rateDate, date, sizeof(rateDate));
-  rateDerived = derived;
-  eurDerived = eurDer;
   valid = true;
   lastOkMs = millis();
   status[0] = 0;
@@ -195,6 +253,8 @@ void financeBegin()
   {
     String c = p.getString("cur", "BRL");
     if(c.length() == 3) strlcpy(currency, c.c_str(), sizeof(currency));
+    uint8_t sv[3];
+    if(p.getBytes("slots", sv, 3) == 3 && sv[0] < FIN_ITEMS && sv[1] < FIN_ITEMS && sv[2] < FIN_ITEMS) memcpy(slots, sv, 3);
     p.end();
   }
   xTaskCreatePinnedToCore(financeTask, "finance", FIN_TASK_STACK, nullptr, 1, nullptr, 1);
@@ -224,7 +284,24 @@ bool financeTick()
   char cur[4];
   strlcpy(cur, pendingCurrency, sizeof(cur));
   havePending = false;
+  const bool applySlots = havePendingSlots;
+  uint8_t ns[3];
+  memcpy(ns, pendingSlots, 3);
+  havePendingSlots = false;
   unlock();
+  if(applySlots)
+  {
+    Preferences p;
+    if(p.begin("finance", false)) { p.putBytes("slots", ns, 3); p.end(); }
+    lock();
+    memcpy(slots, ns, 3);
+    valid = false;
+    lastOkMs = 0;
+    snprintf(status, sizeof(status), "%s", tr(T_SEARCHING_RATES));
+    version++;
+    unlock();
+    wakeNow = true;
+  }
   if(apply)
   {
     Preferences p;
@@ -286,8 +363,11 @@ void financeDraw(LGFX_Sprite &spr)
 {
   lock();
   const bool ok = valid;
-  const float usdL = usdLocal, eurL = eurLocal, bUsd = btcUsd, bLoc = btcLocal;
-  const bool derived = rateDerived, eurDer = eurDerived;
+  float vL[FIN_ITEMS], vU[FIN_ITEMS];
+  bool vD[FIN_ITEMS];
+  memcpy(vL, itemLocal, sizeof(vL)); memcpy(vU, itemUsd, sizeof(vU)); memcpy(vD, itemDer, sizeof(vD));
+  uint8_t sl[3];
+  memcpy(sl, slots, 3);
   char cur[4], st[40], date[11];
   strlcpy(cur, currency, sizeof(cur));
   strlcpy(st, status, sizeof(st));
@@ -345,28 +425,30 @@ void financeDraw(LGFX_Sprite &spr)
   };
 
   char note[40];
-  const bool isUsd = !strcmp(cur, "USD"), isEur = !strcmp(cur, "EUR");
-
-  // Dollar
-  fmtNum(num, sizeof(num), usdL, usdL >= 100 ? 2 : 4);
-  if(isUsd) snprintf(note, sizeof(note), "%s", tr(T_FIN_LOCAL));
-  else if(derived) snprintf(note, sizeof(note), "%s", tr(T_FIN_DERIV_S));
-  else snprintf(note, sizeof(note), tr(T_FIN_REFS), date);
-  card(22, 42, tr(T_FIN_USD), note, sym, num, cGreen);
-
-  // Euro
-  if(eurL > 0) fmtNum(num, sizeof(num), eurL, eurL >= 100 ? 2 : 4); else strlcpy(num, "--", sizeof(num));
-  if(isEur) snprintf(note, sizeof(note), "%s", tr(T_FIN_LOCAL));
-  else if(eurDer) snprintf(note, sizeof(note), "%s", tr(T_FIN_DERIV_S));
-  else snprintf(note, sizeof(note), tr(T_FIN_REFS), date);
-  card(66, 42, tr(T_FIN_EUR), note, sym, num, cBlue);
-
-  // Bitcoin: in the local currency, with the dollar price at the right of the label
-  char usdTxt[32], locTxt[32];
-  fmtNum(usdTxt, sizeof(usdTxt), bUsd, bUsd >= 1000 ? 0 : 2);
-  fmtNum(locTxt, sizeof(locTxt), bLoc, bLoc >= 1000 ? 0 : 2);
-  if(!isUsd) { snprintf(note, sizeof(note), "US$ %s", usdTxt); card(110, 42, "BITCOIN (BTC)", note, sym, locTxt, cGold); }
-  else card(110, 42, "BITCOIN (BTC)", "", "US$", usdTxt, cGold);
+  const bool isUsd = !strcmp(cur, "USD");
+  const uint16_t cols[FIN_ITEMS] = {cGreen, cBlue, rgb(200, 150, 255), cGold, rgb(150, 160, 255)};
+  for(int k = 0 ; k < 3 ; k++)
+  {
+    const int it = sl[k], y = 22 + 44 * k;
+    const float v = vL[it];
+    const char *label = it == 0 ? tr(T_FIN_USD) : it == 1 ? tr(T_FIN_EUR) : it == 2 ? tr(T_FIN_GBP) : it == 3 ? "BITCOIN (BTC)" : "ETHEREUM (ETH)";
+    if(it <= 2)
+    {
+      if(v > 0) fmtNum(num, sizeof(num), v, v >= 100 ? 2 : 4); else strlcpy(num, "--", sizeof(num));
+      if(!strcmp(ITEM_CODE[it], cur)) snprintf(note, sizeof(note), "%s", tr(T_FIN_LOCAL));
+      else if(vD[it]) snprintf(note, sizeof(note), "%s", tr(T_FIN_DERIV_S));
+      else snprintf(note, sizeof(note), tr(T_FIN_REFS), date);
+      card(y, 42, label, note, sym, num, cols[it]);
+    }
+    else
+    {
+      char usdTxt[32];
+      fmtNum(usdTxt, sizeof(usdTxt), vU[it], vU[it] >= 1000 ? 0 : 2);
+      fmtNum(num, sizeof(num), v, v >= 1000 ? 0 : 2);
+      if(!isUsd) { snprintf(note, sizeof(note), "US$ %s", usdTxt); card(y, 42, label, note, sym, num, cols[it]); }
+      else card(y, 42, label, "", "US$", usdTxt, cols[it]);
+    }
+  }
 
   spr.setTextDatum(BL_DATUM);
   spr.setTextColor(uiModern ? np.muted : rgb(120, 150, 160));

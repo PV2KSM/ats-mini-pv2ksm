@@ -367,21 +367,22 @@ namespace nu
     g.setFont(&FontB612Bold16); const int fw = g.textWidth(fs);
     text(g, FontB612Reg10, unit, 44 + fw + 4, 14, p.muted, D_ML);
     { g.setFont(&FontB612Reg10); const int ux = 44 + fw + 4 + g.textWidth(unit) + 10;
-      nameFit(g, p, FontB612Bold12, in.station, ux, 11, 216 - ux, p.txt2, n.ms); }
+      nameFit(g, p, FontB612Bold12, in.station, ux, 11, 186 - ux, p.txt2, n.ms); }
     digitCursorFont(g, FontB612Bold16, 1.0f, in.hl, fs, 44, 11, p.acc, p.needle);
     // Lit tuning scale
-    bezel(g, 6, 24, 308, 46, 5);
-    gradRound(g, 6, 24, 308, 46, 5, cream1, cream2, 70);
+    // (starts at y 38: the MUTED / SQ label of the standard frame sits above it, at the right)
+    bezel(g, 6, 38, 308, 32, 5);
+    gradRound(g, 6, 38, 308, 32, 5, cream1, cream2, 70);
     const int px = scaleWalk(in, 14, 306, [&](int x, bool maj, double v, double major)
     {
-      g.drawFastVLine(x, 30, maj ? 15 : 6, maj ? inkc : nuRgb(110, 92, 64));
-      if(maj) { g.drawFastVLine(x + 1, 30, 15, inkc); char b[12]; valStr(b, sizeof(b), v, major); if(x > 22 && x < 298) text(g, FontB612Bold12, b, x, 57, inkc, D_MC); }
+      g.drawFastVLine(x, 42, maj ? 11 : 5, maj ? inkc : nuRgb(110, 92, 64));
+      if(maj) { g.drawFastVLine(x + 1, 42, 11, inkc); char b[12]; valStr(b, sizeof(b), v, major); if(x > 22 && x < 298) text(g, FontB612Bold12, b, x, 61, inkc, D_MC); }
     });
     // Pointer with glow + shadow
-    g.drawFastVLine(px + 2, 26, 42, ckMix(cream2, 0, 70));
-    g.drawFastVLine(px - 2, 26, 42, ckMix(cream2, redc, 70)); g.drawFastVLine(px + 1, 26, 42, ckMix(cream2, redc, 70));
-    g.drawFastVLine(px - 1, 25, 44, redc); g.drawFastVLine(px, 25, 44, redc);
-    g.fillTriangle(px - 4, 25, px + 4, 25, px, 31, redc);
+    g.drawFastVLine(px + 2, 40, 28, ckMix(cream2, 0, 70));
+    g.drawFastVLine(px - 2, 40, 28, ckMix(cream2, redc, 70)); g.drawFastVLine(px + 1, 40, 28, ckMix(cream2, redc, 70));
+    g.drawFastVLine(px - 1, 39, 30, redc); g.drawFastVLine(px, 39, 30, redc);
+    g.fillTriangle(px - 4, 39, px + 4, 39, px, 44, redc);
     // Dials
     static const char *const sl[] = {"1", "3", "5", "7", "9", "+20", "+40"};
     static const float sf[] = {0.00f, 0.18f, 0.36f, 0.50f, 0.62f, 0.78f, 0.92f};
@@ -425,7 +426,7 @@ namespace nu
     text(g, FontB612Big, fs, fx, 34, p.txt, D_ML);
     g.setTextSize(1.0f);
     text(g, FontB612Reg10, unit, fx + fw + 4, 42, p.acc, D_ML);
-    nameFit(g, p, FontB612Bold12, in.station, 44, 11, 172, p.txt2, n.ms);          // top row, beside the mode chip (ends before the Wi-Fi / battery banner)
+    nameFit(g, p, FontB612Bold12, in.station, 44, 11, 142, p.txt2, n.ms);          // top row, beside the mode chip (ends before the Wi-Fi / battery banner)
     digitCursorFont(g, FontB612Big, 0.88f, in.hl, fs, fx, 34, p.acc, p.needle, -3);
     // glass scale
     g.fillSmoothRoundRect(8, 52, 304, 40, 6, nuRgb(18, 17, 16));
@@ -464,24 +465,25 @@ namespace nu
     const CkIn &in = n.k;
     for(int y = 0 ; y < 170 ; y++) g.drawFastHLine(0, y, 320, ckMix(nuRgb(98, 60, 30), nuRgb(50, 29, 13), y * 256 / 170));
     for(int y = 0 ; y < 170 ; y += 5) g.drawFastHLine(0, y, 320, ckMix(nuRgb(98, 60, 30), nuRgb(50, 29, 13), 90));
-    g.fillSmoothRoundRect(33, 13, 254, 94, 8, nuRgb(30, 20, 10)); rrAA(g, 33, 13, 254, 94, 8, brass);
-    gradRound(g, 36, 16, 248, 88, 6, nuRgb(246, 228, 180), nuRgb(204, 176, 118), 60);
+    // Window starts at y 38: the MUTED / SQ label of the standard frame sits above it, at the right
+    g.fillSmoothRoundRect(33, 38, 254, 70, 8, nuRgb(30, 20, 10)); rrAA(g, 33, 38, 254, 70, 8, brass);
+    gradRound(g, 36, 41, 248, 64, 6, nuRgb(246, 228, 180), nuRgb(204, 176, 118), 60);
     const int px = scaleWalk(in, 44, 276, [&](int x, bool maj, double v, double major)
     {
-      g.drawFastVLine(x, 24, maj ? 18 : 6, maj ? nuRgb(50, 34, 18) : nuRgb(128, 98, 62));
-      if(maj) { char b[12]; valStr(b, sizeof(b), v, major); if(x > 52 && x < 268) text(g, FontB612Bold12, b, x, 52, nuRgb(50, 34, 18), D_MC); }
+      g.drawFastVLine(x, 46, maj ? 14 : 5, maj ? nuRgb(50, 34, 18) : nuRgb(128, 98, 62));
+      if(maj) { char b[12]; valStr(b, sizeof(b), v, major); if(x > 52 && x < 268) text(g, FontB612Bold12, b, x, 66, nuRgb(50, 34, 18), D_MC); }
     });
     // memory names under the scale
     if(n.mem) for(int i = 0 ; i < n.nMem && i < 3 ; i++)
     {
       const double f = n.mem[i].freq, lo = in.minFreq, hi = in.maxFreq;
-      if(hi > lo && f >= lo && f <= hi) text(g, FontB612Reg10, n.mem[i].name, 44 + (int)((f - lo) / (hi - lo) * 232), 64 + (i & 1) * 12, nuRgb(110, 60, 30), D_MC);
+      if(hi > lo && f >= lo && f <= hi) text(g, FontB612Reg10, n.mem[i].name, 44 + (int)((f - lo) / (hi - lo) * 232), 77 + (i & 1) * 8, nuRgb(110, 60, 30), D_MC);
     }
-    g.drawFastVLine(px + 2, 18, 80, nuRgb(180, 150, 100)); g.drawFastVLine(px - 1, 18, 80, redc); g.drawFastVLine(px, 18, 80, redc);
+    g.drawFastVLine(px + 2, 42, 62, nuRgb(180, 150, 100)); g.drawFastVLine(px - 1, 42, 62, redc); g.drawFastVLine(px, 42, 62, redc);
     char fs[16]; const char *unit = freqStr(in, fs, sizeof(fs)); char line[40]; snprintf(line, sizeof(line), "%s  %s %s", in.modeName, fs, unit);
-    text(g, FontB612Bold12, line, 160, 88, nuRgb(50, 30, 14), D_MC);
+    text(g, FontB612Bold12, line, 160, 97, nuRgb(50, 30, 14), D_MC);
     { g.setFont(&FontB612Bold12); const int lw = g.textWidth(line); char pre[16]; snprintf(pre, sizeof(pre), "%s  ", in.modeName);
-      digitCursorFont(g, FontB612Bold12, 1.0f, in.hl, fs, 160 - lw / 2 + g.textWidth(pre), 88, redc, nuRgb(30, 18, 8), 1); }
+      digitCursorFont(g, FontB612Bold12, 1.0f, in.hl, fs, 160 - lw / 2 + g.textWidth(pre), 97, redc, nuRgb(30, 18, 8), 1); }
     for(int k = 0 ; k < 2 ; k++)
     {
       const int cx = k ? 303 : 17;
@@ -548,7 +550,7 @@ namespace nu
     text(g, FontB612Big, fs, 160 - fw / 2, 40, p.txt, D_ML);
     digitCursorFont(g, FontB612Big, 1.0f, in.hl, fs, 160 - fw / 2, 40, p.acc, p.needle, -3);
     text(g, FontB612Reg10, unit, 160 + fw / 2 + 4, 48, p.acc, D_ML);
-    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold12, in.station, 64, 11, 152, p.txt2, n.ms);
+    if(in.station && in.station[0]) nameFit(g, p, FontB612Bold12, in.station, 64, 11, 122, p.txt2, n.ms);
     const int y = 104, x0 = 14, x1 = 306;
     const double lo = in.minFreq, hi = in.maxFreq > in.minFreq ? in.maxFreq : in.minFreq + 1;
     g.fillSmoothRoundRect(x0, y - 1, x1 - x0, 3, 1, ckMix(p.bg1, 0xFFFF, 60));
@@ -653,7 +655,9 @@ namespace nu
       "Flights", "Weather", "Finance", "Network", "Settings", "Brightness", "Date/Time", "UTC Offset", "Sleep Timer", "Sleep Mode", "Off Timer", "Theme", "UI Layout",
       "Zoom Menu", "Scroll Dir.", "RDS", "FM Stereo", "FM Region", "Calibration", "DSP Patches", "Load EiBi", "Update FW", "USB Port", "TCP Port", "Bluetooth", "Wi-Fi",
       "Language", "Accent", "Text color", "Background", "Menu color", "Menu style", "About"};
+    if(!strcmp(n, "Flights radar")) return 13;
     if(!strcmp(n, "Visual")) return 24;   // palette icon (same as Theme)
+    if(!strcmp(n, "CPU speed")) return 32;
     if(!strcmp(n, "News")) return 46;   // newspaper
     for(unsigned i = 0 ; i < sizeof(names) / sizeof(names[0]) ; i++) if(!strcmp(n, names[i])) return (int)i;
     return 17;   // gear
@@ -748,6 +752,12 @@ namespace nu
         P(0, -.62f, &ex, &ey); P(0, -.5f, &fx, &fy); ln(g, ex, ey, fx, fy, s * 0.05f, bgc);
         break;
       }
+      case 46: // News: newspaper (headline block, text lines)
+        rrect(g, (int)(cx - s), (int)(cy - s * 0.8f), (int)(2 * s), (int)(1.6f * s), 3, c, th); rrect(g, (int)(cx - s) + 1, (int)(cy - s * 0.8f) + 1, (int)(2 * s) - 2, (int)(1.6f * s) - 2, 2, c, th);
+        g.fillRect((int)(cx - s * 0.75f), (int)(cy - s * 0.52f), (int)(s * 0.8f), (int)(s * 0.55f), c);
+        ln(g, cx + s * 0.25f, cy - s * 0.45f, cx + s * 0.75f, cy - s * 0.45f, r * 0.8f, c); ln(g, cx + s * 0.25f, cy - s * 0.15f, cx + s * 0.75f, cy - s * 0.15f, r * 0.8f, c);
+        ln(g, cx - s * 0.75f, cy + s * 0.25f, cx + s * 0.75f, cy + s * 0.25f, r * 0.8f, c); ln(g, cx - s * 0.75f, cy + s * 0.55f, cx + s * 0.4f, cy + s * 0.55f, r * 0.8f, c);
+        break;
       case 15: // Finance
         ring(g, (int)cx, (int)cy, (int)s, c, th); ring(g, (int)cx, (int)cy, (int)s - 1, c, th);
         g.setFont(&FontB612Bold12); g.setTextDatum((lgfx::textdatum_t)D_MC); g.setTextColor(c); g.drawString("$", (int)cx, (int)cy + 1);
@@ -780,12 +790,6 @@ namespace nu
         break;
       case 44: // Menu style: grid
         for(int i = 0 ; i < 2 ; i++) for(int j = 0 ; j < 2 ; j++) g.fillRoundRect((int)(cx - s + i * s * 1.1f), (int)(cy - s + j * s * 1.1f), (int)(s * 0.9f), (int)(s * 0.9f), 2, c);
-        break;
-      case 46: // News: newspaper (headline block, text lines)
-        rrect(g, (int)(cx - s), (int)(cy - s * 0.8f), (int)(2 * s), (int)(1.6f * s), 3, c, th); rrect(g, (int)(cx - s) + 1, (int)(cy - s * 0.8f) + 1, (int)(2 * s) - 2, (int)(1.6f * s) - 2, 2, c, th);
-        g.fillRect((int)(cx - s * 0.75f), (int)(cy - s * 0.52f), (int)(s * 0.8f), (int)(s * 0.55f), c);
-        ln(g, cx + s * 0.25f, cy - s * 0.45f, cx + s * 0.75f, cy - s * 0.45f, r * 0.8f, c); ln(g, cx + s * 0.25f, cy - s * 0.15f, cx + s * 0.75f, cy - s * 0.15f, r * 0.8f, c);
-        ln(g, cx - s * 0.75f, cy + s * 0.25f, cx + s * 0.75f, cy + s * 0.25f, r * 0.8f, c); ln(g, cx - s * 0.75f, cy + s * 0.55f, cx + s * 0.4f, cy + s * 0.55f, r * 0.8f, c);
         break;
       case 45: // About: i
         ring(g, (int)cx, (int)cy, (int)s, c, th); ring(g, (int)cx, (int)cy, (int)s - 1, c, th);
@@ -992,10 +996,11 @@ namespace nu
       {"FM Region", "Regiao FM", "Region FM", "Regiao", "Region"}, {"Calibration", "Calibracao", "Calibracion", "Calibr.", "Calibr."},
       {"DSP Patches", "Patches DSP", "Parches DSP", "DSP", "DSP"}, {"Load EiBi", "Carregar EiBi", "Cargar EiBi", "EiBi", "EiBi"},
       {"Update FW", "Atualizar FW", "Actualizar FW", "Atualiz.", "Actual."}, {"USB Port", "Porta USB", "Puerto USB", "USB", "USB"}, {"TCP Port", "Porta TCP", "Puerto TCP", "TCP", "TCP"},
-      {"Bluetooth", "Bluetooth", "Bluetooth", 0, 0}, {"Wi-Fi", "Wi-Fi", "Wi-Fi", 0, 0}, {"Language", "Idioma", "Idioma", 0, 0}, {"About", "Sobre", "Acerca de", 0, 0},
+      {"Bluetooth", "Bluetooth", "Bluetooth", 0, 0}, {"Wi-Fi", "Wi-Fi", "Wi-Fi", 0, 0}, {"Language", "Idioma", "Idioma", 0, 0}, {"About", "Sobre", "Acerca de", 0, 0}, {"CPU speed", "Velocidade CPU", "Velocidad CPU", "CPU", "CPU"}, {"Temp unit", "Unidade temp.", "Unidad temp.", "Unid. temp", "Unid. temp"},
       {"UI Layout", "Layout da tela", "Diseno de pantalla", "Layout", "Diseno"}, {"Theme", "Tema", "Tema", 0, 0}, {"Accent", "Destaque", "Acento", 0, 0},
       {"Text color", "Cor do texto", "Color de texto", "Texto", "Texto"}, {"Background", "Fundo", "Fondo", 0, 0},
       {"Menu color", "Cor do menu", "Color del menu", "Cor menu", "Col. menu"}, {"Menu style", "Estilo do menu", "Estilo del menu", "Estilo", "Estilo"},
+      {"Flights radar", "Radar de voo", "Radar de vuelos", "Radar", "Radar"},
     };
     for(unsigned i = 0 ; i < sizeof(T) / sizeof(T[0]) ; i++)
       if(!strcmp(en, T[i].en))

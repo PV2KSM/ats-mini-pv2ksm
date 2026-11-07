@@ -11,6 +11,7 @@
 #define LANG_TOTAL 3
 
 extern uint8_t uiLang;                 // Saved in the preferences
+extern uint8_t uiTempUnit;             // Weather temperature unit: 0 = Celsius, 1 = Fahrenheit
 extern const char *const uiLangDesc[]; // "Portugues", "English", "Espanol"
 int getTotalLanguages();
 
@@ -19,12 +20,12 @@ enum TrId : uint8_t
 {
   T_SEARCHING, T_SEARCHING_WX, T_SEARCHING_METAR, T_SEARCHING_RATES, T_WAITING,
   T_NO_WIFI, T_NO_TIME, T_NO_MEM, T_HTTP_ERR, T_TLS_ERR, T_NET_ERR, T_BIG_RESP, T_READ_FAIL,
-  T_JSON_ERR, T_BAD_DATA, T_UNKNOWN_ERR,
+  T_JSON_ERR, T_BAD_DATA, T_CITY_NF, T_UNKNOWN_ERR,
   T_SET_ICAO, T_NO_METAR, T_CALM, T_NO_CLOUDS,
   T_NOW, T_FEELS, T_HUMIDITY, T_WIND, T_RAIN, T_PRESSURE, T_NEXT_DAYS, T_NEXT_HOURS, T_TODAY,
   T_SUNRISE, T_BARS_RAIN,
   T_VISIB, T_CEIL, T_TEMPDEW, T_WX, T_FETCHED,
-  T_FIN_TITLE, T_FIN_USD, T_FIN_EUR, T_FIN_LOCAL, T_FIN_DERIV_S, T_FIN_REFS, T_FIN_NO_PRICE,
+  T_FIN_TITLE, T_FIN_USD, T_FIN_EUR, T_FIN_GBP, T_FIN_LOCAL, T_FIN_DERIV_S, T_FIN_REFS, T_FIN_NO_PRICE,
   T_FIN_BAD_PRICE, T_FIN_SOURCES,
   T_FL_HDR, T_FL_HDR0, T_FL_NONE, T_FL_SET_POS, T_FL_NO_AC, T_FL_ON_GROUND, T_FL_CLOSE,
   T_FL_ALT, T_FL_SPD, T_FL_HDG, T_FL_VS, T_FL_DIST,

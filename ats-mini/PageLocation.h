@@ -3,16 +3,28 @@
 
 #include <Arduino.h>
 
-static const char pageLocationTitle[] PROGMEM = "ATS-Mini Location";
+static const char pageLocationTitle[] PROGMEM = "ATS-Mini Flights";
 
 static const char pageLocation[] PROGMEM = R"HTML(<H1>{{title}}</H1>
 {{{navigation}}}
 <P CLASS="CENTER"><B>{{message}}</B></P>
 <FORM ACTION="/location" METHOD="POST">
 <TABLE COLUMNS="2">
-  <TR><TH CLASS="HEADING" COLSPAN="2">Observer position (Flights and Weather)</TH></TR>
-  <TR><TD CLASS="LABEL">Airport ICAO</TD>
-      <TD><INPUT TYPE="text" NAME="icao" VALUE="{{icao}}" MAXLENGTH="4" PLACEHOLDER="e.g. SBSJ"><BR>
+  <TR><TH CLASS="HEADING" COLSPAN="2">Flights</TH></TR>
+  <TR><TD CLASS="LABEL">Show Flights in the radio</TD>
+      <TD><SELECT NAME="svcflights"><OPTION VALUE="1" {{on}}>Yes</OPTION><OPTION VALUE="0" {{off}}>No</OPTION></SELECT><BR>
+      <SMALL>Choose No to hide Flights from the radio menu.</SMALL></TD></TR>
+  <TR><TD CLASS="LABEL">Radar look</TD>
+      <TD><SELECT NAME="radarstyle">
+        <OPTION VALUE="0" {{rs0}}>Map</OPTION>
+        <OPTION VALUE="1" {{rs1}}>A32X (airliner display)</OPTION>
+        <OPTION VALUE="2" {{rs2}}>ATCAS (grey TCAS)</OPTION>
+        <OPTION VALUE="3" {{rs3}}>BTCAS (bronze TCAS)</OPTION>
+        <OPTION VALUE="4" {{rs4}}>B7X (737 display)</OPTION>
+      </SELECT><BR><SMALL>The map shows the aircraft over a basemap. The cockpit looks draw the traffic like an airliner display and do not download a map.</SMALL></TD></TR>
+  <TR><TH CLASS="HEADING" COLSPAN="2">Airport position (Flights, Map and METAR)</TH></TR>
+  <TR><TD CLASS="LABEL">Airport ICAO or IATA</TD>
+      <TD><INPUT TYPE="text" NAME="icao" VALUE="{{icao}}" MAXLENGTH="4" PLACEHOLDER="e.g. SBSJ or SJK"><BR>
       <SMALL>If filled, the airport position is used ({{count}} airports in the table) and the fields below are ignored.</SMALL></TD></TR>
   <TR><TD CLASS="LABEL">Latitude</TD><TD><INPUT TYPE="text" NAME="lat" VALUE="{{lat}}" INPUTMODE="decimal"></TD></TR>
   <TR><TD CLASS="LABEL">Longitude</TD><TD><INPUT TYPE="text" NAME="lon" VALUE="{{lon}}" INPUTMODE="decimal"></TD></TR>

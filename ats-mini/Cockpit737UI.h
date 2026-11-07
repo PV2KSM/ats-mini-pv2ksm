@@ -72,7 +72,7 @@ static void bxDraw(G &g, const CkIn &in, const CkColors &c, bool /*unused*/, flo
 
   // The top-right banner (Wi-Fi, battery) would cover the STANDBY label of the art: repaint it as a shorter label at the left
   for(int y = 2 ; y < 16 ; y++) g.drawFastHLine(219, y, 59, (uint16_t)BX_BG[y * 320 + 216]);
-  ckText(g, FontB612Bold12, "STBY", 205, 3, amber, 1);
+  ckText(g, FontB612Bold12, "STBY", 164, 3, amber, 1);
 
   // ---- ACTIVE / STANDBY ----
   auto freqStr = [&](uint32_t f, char *s, size_t n) {

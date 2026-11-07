@@ -47,6 +47,7 @@ void drawLayoutAnalog()
   in.squelch = currentSquelch[currentMode] & 0x7f;
   in.sqlSnr = (currentSquelch[currentMode] & 0x80) != 0;
   in.muted = muteOn(MUTE_MAIN);
+  in.sqActive = muteOn(MUTE_SQUELCH);
   in.hl = (currentCmd == CMD_FREQ) ? getFreqInputPos() + (pushAndRotate ? 0x80 : 0) : 100;
 
   // Smoothed needles (fast attack, a little slower release)

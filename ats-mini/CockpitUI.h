@@ -58,6 +58,7 @@ struct CkIn
   uint8_t squelch;                      // Squelch threshold (0 = off)
   bool sqlSnr;                          // Squelch works on SNR instead of RSSI
   bool muted;                           // Main audio mute
+  bool sqActive;                        // Squelch is silencing the audio right now
 };
 
 static inline uint16_t ckMix(uint16_t a, uint16_t b, int k256)   // RGB565 blend: a + (b-a)*k/256

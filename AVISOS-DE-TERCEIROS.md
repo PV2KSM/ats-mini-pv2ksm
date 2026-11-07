@@ -6,6 +6,7 @@ Este firmware usa dados e componentes de terceiros. Cada um mantém seus própri
 |---|---|---|---|
 | ESP32-SI4732 / ATS-Mini | Firmware base | MIT | Manter aviso de copyright e licença |
 | Fonte B612 | Fonte das telas Cockpit/Analog/Avionics | SIL OFL 1.1 | Texto em `licencas/FontB612-OFL.txt` |
+| Fonte Inter | Texto acentuado da tela Noticias (fonte suave gerada em `NewsFonts.h`) | SIL OFL 1.1 | © The Inter Project Authors. https://github.com/rsms/inter |
 | LovyanGFX | Gráficos | Licença permissiva (FreeBSD/MIT) | Biblioteca do projeto base |
 | adsb.lol | Voos | Dados abertos (ODbL) | Citar a fonte |
 | OpenStreetMap | Mapa de fundo | ODbL (dados); tiles: política de uso do OSM | Atribuição "(c) OpenStreetMap contributors" exibida; User-Agent identificado; sem uso pesado (o acesso pode ser bloqueado sem aviso); o usuário pode configurar outra fonte de tiles |

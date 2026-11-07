@@ -124,6 +124,8 @@ static inline WxBg wxBackground(int kind, bool day, int h)
 // Icons. s = scale (1.0 is about 64 px wide), t = time in seconds for animation.
 // Everything is baked into solid colours (no alpha): halos are concentric discs blended with the sky colour.
 //
+#include "WeatherSky.h"
+
 static inline uint16_t wxSkyAt(const WxBg *bg, int y) { return bg ? bg->at(y < 0 ? 0 : (y > bg->h - 1 ? bg->h - 1 : y)) : wxRgb(60, 130, 210); }
 
 // Soft glow around a point: concentric discs from the outside in
@@ -408,8 +410,12 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
   const int kind = wxKind(d.code);
   const bool day = d.isDay != 0;
   WxBg bg = wxBackground(kind, day, H);
-  for(int y = 0 ; y < H ; y++) g.fillRect(0, y, W, 1, bg.at(y));
-  wxAmbient(g, kind, day, t, bg);
+  const bool sky = wxs::scene(g, bg, kind, d.code, day, t);     // Procedural sky; falls back to the flat one if memory is short
+  if(!sky)
+  {
+    for(int y = 0 ; y < H ; y++) g.fillRect(0, y, W, 1, bg.at(y));
+    wxAmbient(g, kind, day, t, bg);
+  }
 
   char buf[64];
 
@@ -429,14 +435,14 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
 
   if(page == 0)
   {
-    wxIcon(g, kind, day, 60, 72, 1.15f, t, bg);
+    if(!sky) wxIcon(g, kind, day, 60, 72, 1.15f, t, bg);
 
     snprintf(buf, sizeof(buf), "%d", d.temp);
     wxText(g, buf, 118, 26, fD, cW, 0, cSh);
     int tw = g.textWidth(buf, fD);
     g.drawCircle(118 + tw + 8, 34, 4, cW);
     g.drawCircle(118 + tw + 8, 34, 3, cW);
-    wxText(g, "C", 118 + tw + 16, 28, fL, cW, 0, cSh);
+    wxText(g, uiTempUnit == 1 ? "F" : "C", 118 + tw + 16, 28, fL, cW, 0, cSh);
 
     wxText(g, wxDesc(d.code), 118, 82, fS, cW, 0, cSh);
     snprintf(buf, sizeof(buf), tr(T_FEELS), d.feels, d.days[0].tmax, d.days[0].tmin);
@@ -752,7 +758,7 @@ static void wxDrawScreen(G &g, const WxData &d, const char *place, const char *s
     int tw = g.textWidth(buf, fD);
     g.drawCircle(118 + tw + 8, 34, 4, cW);
     g.drawCircle(118 + tw + 8, 34, 3, cW);
-    wxo::wxText(g, "C", 118 + tw + 16, 28, fL, cW, 0, cSh);
+    wxo::wxText(g, uiTempUnit == 1 ? "F" : "C", 118 + tw + 16, 28, fL, cW, 0, cSh);
 
     wxo::wxText(g, wxDesc(d.code), 118, 82, fS, cW, 0, cSh);
     snprintf(buf, sizeof(buf), tr(T_FEELS), d.feels, d.days[0].tmax, d.days[0].tmin);

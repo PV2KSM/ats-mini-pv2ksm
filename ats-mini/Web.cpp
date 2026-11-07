@@ -19,12 +19,13 @@
 #include "PageConfig.h"
 #include "PageWiFi.h"
 #include "PageUpdate.h"
-#include "PageNews.h"
-#include "News.h"
 #include "PagePatches.h"
 #include "PageControl.h"
 #include "PageLocation.h"
 #include "PageFinance.h"
+#include "PageServices.h"
+#include "PageNews.h"
+#include "News.h"
 #include "PageBackup.h"
 #include "Finance.h"
 #include "NewUI.h"
@@ -80,7 +81,7 @@ static struct
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
   int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
-  int accent, textCol, bgCol, menuCol, menuStyle;
+  int accent, textCol, bgCol, menuCol, menuStyle, cpuIdx;
   bool clamp, reverseScroll, halfStep, zoom;
   bool setClock;
   uint32_t epoch;
@@ -107,8 +108,9 @@ static void webApiStatus(AsyncWebServerRequest *request);
 static void webApiTune(AsyncWebServerRequest *request);
 static void webLocationPage(AsyncWebServerRequest *request, const LocationInfo &shown, const char *message);
 static void webSetLocation(AsyncWebServerRequest *request);
-static void webFinancePage(AsyncWebServerRequest *request, const char *message);
+static void webServicesPage(AsyncWebServerRequest *request, const char *message);
 static void webNewsPage(AsyncWebServerRequest *request, const char *message);
+static void webApplySvc(AsyncWebServerRequest *request, const char *field, uint8_t bit);
 static bool webApplyRadio();
 
 struct SplashUploadState
@@ -206,6 +208,7 @@ bool webTick()
     uiLayoutIdx = configSettings.layout;
     uiAccent = configSettings.accent; uiTextWhite = configSettings.textCol; uiBgIdx = configSettings.bgCol;
     uiMenuColor = configSettings.menuCol; uiMenuStyle = configSettings.menuStyle;
+    if(uiCpuIdx != configSettings.cpuIdx) { uiCpuIdx = configSettings.cpuIdx; applyCpuSpeed(); }
     if(configSettings.lang >= 0 && configSettings.lang < LANG_TOTAL) uiLang = configSettings.lang;
     if(FmRegionIdx != configSettings.region)
       doFmRegion(configSettings.region - FmRegionIdx);
@@ -297,6 +300,7 @@ void webInit()
     c.refreshMin = (uint8_t)val("ref").toInt();
     c.secs = (uint8_t)val("sec").toInt();
     c.show = (request->hasParam("s1", true) ? 1 : 0) | (request->hasParam("s2", true) ? 2 : 0);
+    webApplySvc(request, "svcnews", SVC_NEWS);
     const char *error = newsSetCfg(c);
     webNewsPage(request, error ? error : "Saved. Open News in the radio menu.");
   });
@@ -340,16 +344,46 @@ void webInit()
     request->send(200, "application/json", j);
   });
 
-  // Finance: local currency
-  server.on("/finance", HTTP_GET, [] (AsyncWebServerRequest *request) {
+  // Weather: show switch, city and temperature unit
+  server.on("/services", HTTP_GET, [] (AsyncWebServerRequest *request) {
     if(!webIsAuthenticated(request)) return request->requestAuthentication();
-    webFinancePage(request, "");
+    webServicesPage(request, "");
+  });
+  server.on("/services", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webApplySvc(request, "svcweather", SVC_WEATHER);
+    const auto *tu = request->getParam("tempunit", true);
+    uiTempUnit = tu && tu->value().toInt() == 1 ? 1 : 0;
+    prefsRequestSave(SAVE_SETTINGS);
+    const auto *wc = request->getParam("wxcity", true);
+    String city = wc ? wc->value() : String();
+    city.trim();
+    const char *cityError = wxPlaceRequestCity(city.c_str());
+    webServicesPage(request, cityError ? (String(cityError) + " The weather city was not saved.").c_str() : "Saved.");
+  });
+
+  // Finance lives inside the News page: the old address goes there
+  server.on("/finance", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    request->redirect("/news");
   });
   server.on("/finance", HTTP_POST, [] (AsyncWebServerRequest *request) {
     if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webApplySvc(request, "svcfinance", SVC_FINANCE);
     const auto *p = request->getParam("currency", true);
     const char *error = financeRequestCurrency(p ? p->value().c_str() : "");
-    webFinancePage(request, error ? error : "Saved. Open Finance in the radio menu.");
+    if(!error)
+    {
+      uint8_t s[3];
+      for(int i = 0 ; i < 3 ; i++)
+      {
+        char n[5];
+        snprintf(n, sizeof(n), "fin%d", i);
+        const auto *q = request->getParam(n, true);
+        s[i] = q ? (uint8_t)q->value().toInt() : (uint8_t)(i == 0 ? 0 : i == 1 ? 1 : 3);
+      }
+      error = financeRequestSlots(s);
+    }
+    webNewsPage(request, error ? error : "Saved. Open Finance in the radio menu.");
   });
 
   // Backup: export and import everything
@@ -580,13 +614,14 @@ void webSetConfig(AsyncWebServerRequest *request)
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
   int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
-  int accent, textCol, bgCol, menuCol, menuStyle;
+  int accent, textCol, bgCol, menuCol, menuStyle, cpuIdx;
   if(!webConfigNumber(request, "uilayout", layout, 0, getTotalUILayouts() - 1) ||
      !webConfigNumber(request, "uiaccent", accent, 0, NU_ACCENTS - 1) ||
      !webConfigNumber(request, "uitext", textCol, 0, NU_TEXTS - 1) ||
      !webConfigNumber(request, "uibg", bgCol, 0, NU_BGS - 1) ||
      !webConfigNumber(request, "uimenucol", menuCol, 0, NU_ACCENTS) ||
      !webConfigNumber(request, "uimenustyle", menuStyle, 0, 2) ||
+     !webConfigNumber(request, "uicpu", cpuIdx, 0, 2) ||
      !webConfigNumber(request, "lang", lang, 0, getTotalLanguages() - 1) ||
      !webConfigNumber(request, "fmregion", region, 0, getTotalFMRegions() - 1) ||
      !webConfigNumber(request, "fmstereo", stereo, 0, getTotalFMStereoModes() - 1) ||
@@ -667,7 +702,7 @@ void webSetConfig(AsyncWebServerRequest *request)
     configSettings.epoch = setClock? epoch : 0;
     configSettings.layout = layout;
     configSettings.accent = accent; configSettings.textCol = textCol; configSettings.bgCol = bgCol;
-    configSettings.menuCol = menuCol; configSettings.menuStyle = menuStyle;
+    configSettings.menuCol = menuCol; configSettings.menuStyle = menuStyle; configSettings.cpuIdx = cpuIdx;
     configSettings.lang = lang;
     configSettings.region = region;
     configSettings.stereo = stereo;
@@ -1061,16 +1096,46 @@ static bool webApplyRadio()
   return true;
 }
 
+// "Show in the radio" switch of a page: a Yes/No select named like the field
+static void webApplySvc(AsyncWebServerRequest *request, const char *field, uint8_t bit)
+{
+  const auto *p = request->getParam(field, true);
+  if(!p) return;
+  if(p->value().toInt() == 1) uiSvcMask |= bit; else uiSvcMask &= ~bit;
+  prefsRequestSave(SAVE_SETTINGS);
+}
+
 static void webNewsPage(AsyncWebServerRequest *request, const char *message)
 {
   NewsCfg c;
   newsGetCfg(&c);
   const String msg(message), query(c.query), url(c.url);
+  const String on(uiSvcMask & SVC_NEWS ? "SELECTED" : ""), off(uiSvcMask & SVC_NEWS ? "" : "SELECTED");
+  const String fon(uiSvcMask & SVC_FINANCE ? "SELECTED" : ""), foff(uiSvcMask & SVC_FINANCE ? "" : "SELECTED");
+  char finCur[4];
+  financeGetCurrency(finCur, sizeof(finCur));
+  uint8_t finSlots[3];
+  financeGetSlots(finSlots);
   request->send(200, "text/html", webPage(pageNews, pageNewsTitle, {
-    {"title", pageNewsTitle}, {"message", msg}, {"query", query}, {"url", url},
+    {"title", pageNewsTitle}, {"message", msg}, {"query", query}, {"url", url}, {"on", on}, {"off", off}, {"fon", fon}, {"foff", foff},
     {"sum", (c.show & 1) ? " checked" : ""}, {"src", (c.show & 2) ? " checked" : ""}
   }, {
     {"navigation", [](String &out) { webNavigation(out, "/news"); }},
+    {"currencies", [&](String &out) {
+      const char *list = financeCurrencyList();
+      for(const char *p = list ; *p ; p += (p[3] ? 4 : 3))
+      {
+        char code[4];
+        memcpy(code, p, 3);
+        code[3] = 0;
+        out += "<OPTION VALUE=\""; out += code; out += "\"";
+        if(!strcmp(code, finCur)) out += " SELECTED";
+        out += ">"; out += code; out += "</OPTION>";
+      }
+    }},
+    {"fin0", [&](String &out) { for(int i = 0 ; i < financeItemCount() ; i++) { out += "<OPTION VALUE=\""; out += i; out += "\""; if(i == finSlots[0]) out += " SELECTED"; out += ">"; out += financeItemName(i); out += "</OPTION>"; } }},
+    {"fin1", [&](String &out) { for(int i = 0 ; i < financeItemCount() ; i++) { out += "<OPTION VALUE=\""; out += i; out += "\""; if(i == finSlots[1]) out += " SELECTED"; out += ">"; out += financeItemName(i); out += "</OPTION>"; } }},
+    {"fin2", [&](String &out) { for(int i = 0 ; i < financeItemCount() ; i++) { out += "<OPTION VALUE=\""; out += i; out += "\""; if(i == finSlots[2]) out += " SELECTED"; out += ">"; out += financeItemName(i); out += "</OPTION>"; } }},
     {"editions", [&](String &out) {
       for(int i = 0 ; i < newsEditionCount() ; i++)
       {
@@ -1106,25 +1171,19 @@ static void webNewsPage(AsyncWebServerRequest *request, const char *message)
   }));
 }
 
-static void webFinancePage(AsyncWebServerRequest *request, const char *message)
+static void webServicesPage(AsyncWebServerRequest *request, const char *message)
 {
-  char cur[4];
-  financeGetCurrency(cur, sizeof(cur));
   const String msg(message);
-  request->send(200, "text/html", webPage(pageFinance, pageFinanceTitle, {{"title", pageFinanceTitle}, {"message", msg}}, {
-    {"navigation", [](String &out) { webNavigation(out, "/finance"); }},
-    {"options", [&](String &out) {
-      const char *list = financeCurrencyList();
-      for(const char *p = list ; *p ; p += (p[3] ? 4 : 3))
-      {
-        char code[4];
-        memcpy(code, p, 3);
-        code[3] = 0;
-        out += "<OPTION VALUE=\""; out += code; out += "\"";
-        if(!strcmp(code, cur)) out += " SELECTED";
-        out += ">"; out += code; out += "</OPTION>";
-      }
-    }}
+  const String on(uiSvcMask & SVC_WEATHER ? "SELECTED" : ""), off(uiSvcMask & SVC_WEATHER ? "" : "SELECTED");
+  const String tc(uiTempUnit == 0 ? "selected" : ""), tf(uiTempUnit == 1 ? "selected" : "");
+  const WxPlace wxp = wxPlaceGet();
+  const String wxCityShown(wxp.city);
+  const String wxFoundShown(!wxp.city[0] ? "-" : wxp.resolved ? wxp.name : "...");
+  request->send(200, "text/html", webPage(pageServices, pageServicesTitle, {
+    {"title", pageServicesTitle}, {"message", msg}, {"on", on}, {"off", off},
+    {"wxcity", wxCityShown}, {"wxfound", wxFoundShown}, {"tempc", tc}, {"tempf", tf}
+  }, {
+    {"navigation", [](String &out) { webNavigation(out, "/services"); }}
   }));
 }
 
@@ -1141,9 +1200,13 @@ static void webLocationPage(AsyncWebServerRequest *request, const LocationInfo &
   uint8_t mapStyleShown = MAP_STYLE_LIGHT;
   locationGetMapCfg(mapUrlBuf, sizeof(mapUrlBuf), &mapOnShown, &mapStyleShown);
   const String mapUrlShown(mapUrlBuf);
+  const String on(uiSvcMask & SVC_FLIGHTS ? "SELECTED" : ""), off(uiSvcMask & SVC_FLIGHTS ? "" : "SELECTED");
+  const String rs0(uiRadarStyle == 0 ? "SELECTED" : ""), rs1(uiRadarStyle == 1 ? "SELECTED" : ""), rs2(uiRadarStyle == 2 ? "SELECTED" : ""),
+               rs3(uiRadarStyle == 3 ? "SELECTED" : ""), rs4(uiRadarStyle == 4 ? "SELECTED" : "");
   const uint8_t mapSrcShown = strstr(mapUrlBuf, "tile.openstreetmap.org") ? MAP_SRC_OSM : MAP_SRC_CUSTOM;
   request->send(200, "text/html", webPage(pageLocation, pageLocationTitle, {
     {"title", pageLocationTitle}, {"message", message},
+    {"on", on}, {"off", off}, {"rs0", rs0}, {"rs1", rs1}, {"rs2", rs2}, {"rs3", rs3}, {"rs4", rs4},
     {"icao", shown.icao}, {"lat", lat}, {"lon", lon},
     {"name", shown.name}, {"label", shown.label}, {"radius", String(shown.radiusNm)},
     {"keystate", shown.hasCartoKey ? "stored" : "not set"}, {"count", String(locationAirportCount())},
@@ -1173,8 +1236,8 @@ static void webSetLocation(AsyncWebServerRequest *request)
   if(icao.length())
   {
     LocationInfo airport;
-    if(!locationLookupIcao(icao.c_str(), &airport))
-      return webLocationPage(request, current, "ICAO code not found in the airport table. Nothing was saved.");
+    if(!locationLookupAirport(icao.c_str(), &airport))
+      return webLocationPage(request, current, "ICAO or IATA code not found in the airport table. Nothing was saved.");
     next.lat = airport.lat;
     next.lon = airport.lon;
     strlcpy(next.icao, airport.icao, sizeof(next.icao));
@@ -1223,7 +1286,14 @@ static void webSetLocation(AsyncWebServerRequest *request)
   }
 
   next.hasCartoKey = keyArg ? keyArg[0] != 0 : current.hasCartoKey;
-  webLocationPage(request, next, "Saved. Flights and Weather will use the new position.");
+  webApplySvc(request, "svcflights", SVC_FLIGHTS);
+  if(const auto *rs = request->getParam("radarstyle", true))
+  {
+    const int v = rs->value().toInt();
+    uiRadarStyle = (v >= 0 && v <= 4) ? (uint8_t)v : 0;
+    prefsRequestSave(SAVE_SETTINGS);
+  }
+  webLocationPage(request, next, "Saved. Flights and METAR use the airport position.");
 }
 
 static void webSetMemories(AsyncWebServerRequest *request)
@@ -1374,7 +1444,7 @@ const String webConfigPage()
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
   int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
-  int accent, textCol, bgCol, menuCol, menuStyle;
+  int accent, textCol, bgCol, menuCol, menuStyle, cpuIdx;
   bool clamp, reverseScroll, halfStep, zoom;
   {
     // A redirect may arrive before the main task has applied the saved values.
@@ -1391,6 +1461,7 @@ const String webConfigPage()
     bgCol = configSettings.pending ? configSettings.bgCol : uiBgIdx;
     menuCol = configSettings.pending ? configSettings.menuCol : uiMenuColor;
     menuStyle = configSettings.pending ? configSettings.menuStyle : uiMenuStyle;
+    cpuIdx = configSettings.pending ? configSettings.cpuIdx : uiCpuIdx;
     lang = configSettings.pending ? configSettings.lang : uiLang;
     region = configSettings.pending ? configSettings.region : FmRegionIdx;
     stereo = configSettings.pending ? configSettings.stereo : fmStereoIdx;
@@ -1423,6 +1494,7 @@ const String webConfigPage()
     {"text_options", [&](String &out) { webConfigOptions(out, nuTextName, NU_TEXTS, textCol); }},
     {"bg_options", [&](String &out) { webConfigOptions(out, nuBgName, NU_BGS, bgCol); }},
     {"menucol_options", [&](String &out) { static const char *const n[NU_ACCENTS + 1] = {"Same as accent", "Amber", "Green", "Cyan", "Blue", "Magenta", "Red", "White"}; webConfigOptions(out, n, NU_ACCENTS + 1, menuCol); }},
+    {"cpu_options", [&](String &out) { static const char *const n[3] = {"80 MHz (default)", "160 MHz", "240 MHz"}; webConfigOptions(out, n, 3, cpuIdx > 2 ? 0 : cpuIdx); }},
     {"menustyle_options", [&](String &out) { static const char *const n[3] = {"Original", "Carousel", "Grid"}; webConfigOptions(out, n, 3, menuStyle); }},
     {"lang_options", [&](String &out) { webConfigOptions(out, uiLangDesc, getTotalLanguages(), lang); }},
     {"rds_options", [&](String &out) {

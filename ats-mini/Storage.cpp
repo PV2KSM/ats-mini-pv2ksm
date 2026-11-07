@@ -228,6 +228,10 @@ void prefsSave(uint32_t items)
     prefs.putUChar("UiBg",        uiBgIdx);
     prefs.putUChar("UiMenuCol",   uiMenuColor);
     prefs.putUChar("UiMenuSty",   uiMenuStyle);
+    prefs.putUChar("UiCpu",       uiCpuIdx);
+    prefs.putUChar("TempUnit",    uiTempUnit);
+    prefs.putUChar("RadarStyle",  uiRadarStyle);
+    prefs.putUChar("UiSvc",       uiSvcMask);
     prefs.putUChar("Lang",        uiLang);         // Language of the extra screens
     prefs.putUChar("BLEMode",     bleModeIdx);     // Bluetooth mode
     prefs.putUChar("USBMode",     usbModeIdx);     // USB mode
@@ -324,6 +328,10 @@ bool prefsLoad(uint32_t items)
     uiBgIdx        = prefs.getUChar("UiBg", uiBgIdx);        if(uiBgIdx >= NU_BGS) uiBgIdx = 0;
     uiMenuColor    = prefs.getUChar("UiMenuCol", uiMenuColor); if(uiMenuColor > 7) uiMenuColor = 0;
     uiMenuStyle    = prefs.getUChar("UiMenuSty", uiMenuStyle); if(uiMenuStyle > 2) uiMenuStyle = 0;
+    uiTempUnit     = prefs.getUChar("TempUnit", uiTempUnit); if(uiTempUnit > 1) uiTempUnit = 0;
+    uiRadarStyle   = prefs.getUChar("RadarStyle", uiRadarStyle); if(uiRadarStyle > 4) uiRadarStyle = 0;
+    uiCpuIdx       = prefs.getUChar("UiCpu", uiCpuIdx); if(uiCpuIdx > 2) uiCpuIdx = 0;
+    uiSvcMask      = prefs.getUChar("UiSvc", uiSvcMask) & 0x0F;
     uiLang         = prefs.getUChar("Lang", uiLang);            // Language of the extra screens
     if(uiLang >= LANG_TOTAL) uiLang = LANG_EN;
     bleModeIdx     = prefs.getUChar("BLEMode", bleModeIdx);     // Bluetooth mode

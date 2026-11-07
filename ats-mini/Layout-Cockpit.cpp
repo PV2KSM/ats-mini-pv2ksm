@@ -46,12 +46,13 @@ void drawLayoutCockpit()
   in.squelch = currentSquelch[currentMode] & 0x7f;
   in.sqlSnr = (currentSquelch[currentMode] & 0x80) != 0;
   in.muted = muteOn(MUTE_MAIN);
+  in.sqActive = muteOn(MUTE_SQUELCH);
   in.step = getCurrentStep()->desc;
   in.bw = getCurrentBandwidth()->desc;
   static char agcText[8];
   if(!agcNdx && !agcIdx) { in.agcLabel = "AGC"; in.agc = "On"; }
   else { snprintf(agcText, sizeof(agcText), "%2.2d", agcNdx); in.agcLabel = "ATT"; in.agc = agcText; }
-  in.volume = (muteOn(MUTE_MAIN) || muteOn(MUTE_SQUELCH)) ? -1 : volume;
+  in.volume = muteOn(MUTE_MAIN) ? -1 : volume;
   in.minFreq = band->minimumFreq;
   in.maxFreq = band->maximumFreq;
   in.hl = (currentCmd == CMD_FREQ) ? getFreqInputPos() + (pushAndRotate ? 0x80 : 0) : 100;

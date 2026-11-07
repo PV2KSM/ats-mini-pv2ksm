@@ -32,6 +32,8 @@ static const char pageStart[] PROGMEM = R"HTML(<!DOCTYPE HTML>
     .NAV { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 10px 12px 6px; max-width: 820px; margin: 0 auto; }
     .NAV A, .NAV SPAN { padding: .38em .95em; border-radius: 999px; font-size: .9em; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
     .NAV A:hover { border-color: var(--acc); color: var(--acc); text-decoration: none; }
+    .NAV.SUB { padding-top: 0; padding-bottom: 10px; }
+    .NAV.SUB A, .NAV.SUB SPAN { padding: .25em .75em; font-size: .8em; border-radius: 8px; }
     .NAV SPAN { background: var(--acc); border-color: var(--acc); color: #fff; font-weight: 600; }
     TABLE { width: calc(100% - 24px); max-width: 768px; margin: 14px auto; border: 0; border-collapse: separate; border-spacing: 0;
             background: var(--card); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
@@ -73,27 +75,44 @@ static const char pageEnd[] PROGMEM = R"HTML(
 </HTML>
 )HTML";
 
+// Two levels: the groups on top, the pages of the current group below
+struct WebNavPage { const char *name; const char *path; };
+static const WebNavPage navRadio[]    = {{"Status", "/"}, {"Control", "/control"}};
+static const WebNavPage navMemory[]   = {{"Memory", "/memory"}};
+static const WebNavPage navServices[] = {{"Weather", "/services"}, {"Flights", "/location"}, {"News", "/news"}};
+static const WebNavPage navSettings[] = {{"Config", "/config"}, {"Wi-Fi", "/wifi"}};
+static const WebNavPage navSystem[]   = {{"Backup", "/backup"}, {"Update", "/update"}, {"Patches", "/patches"}};
+static const struct { const char *name; const WebNavPage *pages; int count; } navGroups[] =
+{
+  {"Radio",    navRadio,    2},
+  {"Memory",   navMemory,   1},
+  {"Services", navServices, 3},
+  {"Settings", navSettings, 2},
+  {"System",   navSystem,   3},
+};
+
+// Pages whose function was turned off in Services are hidden (their address still works)
+static bool webNavShown(const char *) { return true; }   // Every page stays reachable: each one holds its own Show-in-the-radio switch
+
 static void webNavigation(String &out, const char *activePage)
 {
-  static const struct { const char *name; const char *path; } pages[] =
-  {
-    {"Status", "/"},
-    {"Control", "/control"},
-    {"Memory", "/memory"},
-    {"Location", "/location"},
-    {"News", "/news"},
-    {"Finance", "/finance"},
-    {"Backup", "/backup"},
-    {"Config", "/config"},
-    {"Wi-Fi", "/wifi"},
-    {"Update", "/update"},
-    {"Patches", "/patches"},
-  };
+  int active = 0;
+  for(int g = 0 ; g < 5 ; g++)
+    for(int i = 0 ; i < navGroups[g].count ; i++)
+      if(!strcmp(activePage, navGroups[g].pages[i].path)) active = g;
   out += R"HTML(<NAV CLASS="NAV">)HTML";
-  for(size_t i = 0; i < sizeof(pages) / sizeof(pages[0]); i++)
+  for(int g = 0 ; g < 5 ; g++)
   {
-    if(!strcmp(activePage, pages[i].path)) pageAppend(out, R"HTML(<SPAN>{{label}}</SPAN>)HTML", {{"label", pages[i].name}});
-    else pageAppend(out, R"HTML(<A HREF="{{path}}">{{label}}</A>)HTML", {{"path", pages[i].path}, {"label", pages[i].name}});
+    if(g == active) pageAppend(out, R"HTML(<SPAN>{{label}}</SPAN>)HTML", {{"label", navGroups[g].name}});
+    else pageAppend(out, R"HTML(<A HREF="{{path}}">{{label}}</A>)HTML", {{"path", navGroups[g].pages[0].path}, {"label", navGroups[g].name}});
+  }
+  out += "</NAV><NAV CLASS=\"NAV SUB\">";
+  for(int i = 0 ; i < navGroups[active].count ; i++)
+  {
+    const WebNavPage &pg = navGroups[active].pages[i];
+    if(!webNavShown(pg.path)) continue;
+    if(!strcmp(activePage, pg.path)) pageAppend(out, R"HTML(<SPAN>{{label}}</SPAN>)HTML", {{"label", pg.name}});
+    else pageAppend(out, R"HTML(<A HREF="{{path}}">{{label}}</A>)HTML", {{"path", pg.path}, {"label", pg.name}});
   }
   out += "</NAV>";
 }

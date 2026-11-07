@@ -121,7 +121,7 @@ static void worldPos(double lat, double lon, int z, double *x, double *y)
 
 static void buildRadar()
 {
-  const LocationInfo loc = locationGet();
+  const LocationInfo loc = locationGetWeather();
   const uint32_t g = gen;
   const int z = zoomSel;
 
@@ -317,7 +317,7 @@ static inline uint16_t C565(int r, int g, int b) { return lgfx::color565(r, g, b
 
 void radarDraw(LGFX_Sprite &spr)
 {
-  const LocationInfo loc = locationGet();
+  const LocationInfo loc = locationGetWeather();
   bool have;
   char st[32];
   int zoom;

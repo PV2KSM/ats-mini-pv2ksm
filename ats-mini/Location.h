@@ -21,6 +21,21 @@ int locationAirportCount();
 struct NearbyAirport { char icao[5]; float northNm, eastNm; };
 int locationNearbyAirports(float lat, float lon, float dNorthNm, float dEastNm, NearbyAirport *out, int maxOut);
 bool locationLookupIcao(const char *icao, LocationInfo *out); // Embedded airport table; fills name/lat/lon/icao
+bool locationLookupAirport(const char *code, LocationInfo *out); // 4 letters = ICAO, 3 letters = IATA (mapped to ICAO)
+
+// Weather place: chosen by city name, independent from the Flights/METAR position.
+// Empty city = Weather follows the observer position.
+struct WxPlace
+{
+  char city[40];     // What the person typed (UTF-8), e.g. "Sao Paulo, BR"
+  char name[28];     // Resolved display name (ASCII)
+  float lat, lon;    // Resolved position
+  bool resolved;     // lat/lon belong to `city`
+};
+WxPlace wxPlaceGet();
+LocationInfo locationGetWeather();                          // Observer copy, with the Weather city position when one is resolved
+const char *wxPlaceRequestCity(const char *city);           // nullptr on success, else an error message
+void wxPlaceStore(const char *city, const char *name, float lat, float lon);   // Weather task, after geocoding
 // Queue a change from the web task. cartoKey: nullptr = keep the stored key, "" = erase it.
 // Returns nullptr on success or a short error message.
 const char *locationRequestSet(const LocationInfo &loc, const char *cartoKey);

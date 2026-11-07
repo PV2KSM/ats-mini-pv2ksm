@@ -149,11 +149,11 @@ static void csDraw(G &g, const CkIn &in, const CkColors &c, float sV, float nV, 
   cs::screw(g, 5, 5); cs::screw(g, 314, 5); cs::screw(g, 5, 164); cs::screw(g, 314, 164);
 
   // ---- Mode push-button strip ----
-  g.fillRoundRect(12, 4, 192, 19, 3, 0x1082);
-  g.drawRoundRect(12, 4, 192, 19, 3, cs::metalHi);
+  g.fillRoundRect(12, 4, 174, 19, 3, 0x1082);
+  g.drawRoundRect(12, 4, 174, 19, 3, cs::metalHi);
   const char *names[] = {"FM", "LSB", "USB", "AM", "ST", "RDS"};
   const bool lit[] = {in.mode == 0, in.mode == 1, in.mode == 2, in.mode == 3, in.stereo, in.station && in.station[0]};
-  for(int i = 0 ; i < 6 ; i++) cs::pill(g, 14 + i * 31, 7, 29, names[i], lit[i], i < 4 ? 0x6FF0 : 0xFFE0);
+  for(int i = 0 ; i < 6 ; i++) cs::pill(g, 14 + i * 28, 7, 26, names[i], lit[i], i < 4 ? 0x6FF0 : 0xFFE0);
 
   // ---- Display ----
   const int dx = 8, dy = 27, dw = 246, dh = 76;

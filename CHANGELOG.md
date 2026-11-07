@@ -4,6 +4,24 @@ The user manual is available at <https://esp32-si4732.github.io/ats-mini/manual.
 
 <!-- towncrier release notes start -->
 
+## PV2KSM r30D (2026-11-07) - Services tabs, weather by city, flight radar styles, realistic sky
+
+### Added
+
+- Flights radar styles: besides the map, four cockpit looks (A32X, ATCAS, BTCAS, B7X) with collision-risk colours and de-overlapped labels. Choose on the web Flights page or on the radio in Visual -> Flights radar, with a live preview behind the menu.
+- Weather by city (with country code) and flights by airport ICAO or IATA code, set independently.
+- Services web pages split into Weather, Flights and News/Finance, each with a "show on the radio" Yes/No. Temperature unit moved to the Weather page; Finance moved under News with a choice of currency and three cards (USD, EUR, GBP, BTC, ETH).
+- Realistic procedural weather sky (clouds, sun, moon, stars, rain, snow, fog, lightning) on the Weather screen.
+- News screen uses a smooth font with accented letters, and a dot-matrix world map per language.
+- NAnalog and Vintage layouts share the same frame; Visual -> Flights radar in PT/EN/ES.
+
+### Changed
+
+- Web navigation grouped in five sections; web server task stack raised to 8 KB (fixes a reboot when saving Config).
+- Language review of every new text (PT/EN/ES).
+
+Not hardware-tested by the author on QSPI and LilyGO. Radar styles, geocoding and the new sky were checked as PC renders and compiled; real-radio tests are reported in Issues.
+
 ## PV2KSM r30C (2026-11-01) - News, layout fixes, full language review
 
 ### Added

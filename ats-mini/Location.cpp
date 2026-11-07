@@ -6,6 +6,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "Airports.h"
+#include "Iata.h"
 
 // Defaults: Sao Jose dos Campos, SP
 #define DEF_NAME   "Sao Jose dos Campos"
@@ -16,6 +17,7 @@
 
 static std::mutex mtx;
 static LocationInfo current;
+static WxPlace wxPlace;
 static char cartoKey[64] = "";
 static bool havePending = false;
 static LocationInfo pendingLoc;
@@ -64,6 +66,88 @@ void locationBegin()
     p.end();
   }
   current.hasCartoKey = cartoKey[0] != 0;
+  memset(&wxPlace, 0, sizeof(wxPlace));
+  Preferences wp;
+  if(wp.begin("location", true))
+  {
+    wp.getString("wxcity", wxPlace.city, sizeof(wxPlace.city));
+    if(wxPlace.city[0] && wp.isKey("wxlat"))
+    {
+      wp.getString("wxname", wxPlace.name, sizeof(wxPlace.name));
+      wxPlace.lat = wp.getFloat("wxlat", 0);
+      wxPlace.lon = wp.getFloat("wxlon", 0);
+      wxPlace.resolved = wxPlace.name[0] != 0;
+    }
+    wp.end();
+  }
+}
+
+WxPlace wxPlaceGet()
+{
+  std::lock_guard<std::mutex> lock(mtx);
+  return wxPlace;
+}
+
+LocationInfo locationGetWeather()
+{
+  std::lock_guard<std::mutex> lock(mtx);
+  LocationInfo l = current;
+  if(wxPlace.city[0] && wxPlace.resolved)
+  {
+    l.lat = wxPlace.lat; l.lon = wxPlace.lon;
+    strlcpy(l.name, wxPlace.name, sizeof(l.name));
+    strlcpy(l.label, wxPlace.name, sizeof(l.label));
+    l.icao[0] = 0;
+  }
+  return l;
+}
+
+const char *wxPlaceRequestCity(const char *city)
+{
+  char buf[sizeof(wxPlace.city)];
+  size_t n = 0;
+  for( ; city && *city && n + 1 < sizeof(buf) ; city++)
+  {
+    unsigned char ch = *city;
+    if(ch < 32 || ch == 127 || ch == '"' || ch == '<' || ch == '>' || ch == '&') continue;
+    buf[n++] = ch;
+  }
+  buf[n] = 0;
+  while(n && buf[n - 1] == ' ') buf[--n] = 0;
+  if(*city) return "City name too long.";
+  {
+    std::lock_guard<std::mutex> lock(mtx);
+    if(!strcmp(buf, wxPlace.city)) return nullptr;      // Unchanged: keep the resolved position
+    memset(&wxPlace, 0, sizeof(wxPlace));
+    strlcpy(wxPlace.city, buf, sizeof(wxPlace.city));
+  }
+  Preferences p;
+  if(p.begin("location", false))
+  {
+    p.putString("wxcity", buf);
+    p.remove("wxlat"); p.remove("wxlon"); p.remove("wxname");
+    p.end();
+  }
+  weatherLocationChanged();
+  radarInvalidate();
+  return nullptr;
+}
+
+void wxPlaceStore(const char *city, const char *name, float lat, float lon)
+{
+  {
+    std::lock_guard<std::mutex> lock(mtx);
+    if(strcmp(city, wxPlace.city)) return;               // Changed again while looking up
+    strlcpy(wxPlace.name, name, sizeof(wxPlace.name));
+    wxPlace.lat = lat; wxPlace.lon = lon; wxPlace.resolved = true;
+  }
+  Preferences p;
+  if(p.begin("location", false))
+  {
+    p.putString("wxname", name); p.putFloat("wxlat", lat); p.putFloat("wxlon", lon);
+    p.end();
+  }
+  radarInvalidate();
 }
 
 LocationInfo locationGet()
@@ -172,6 +256,36 @@ bool locationLookupIcao(const char *icao, LocationInfo *out)
       return true;
     }
     if(c < 0) hi = mid - 1; else lo = mid + 1;
+  }
+  return false;
+}
+
+bool locationLookupAirport(const char *code, LocationInfo *out)
+{
+  if(!code) return false;
+  const size_t n = strlen(code);
+  if(n == 4) return locationLookupIcao(code, out);
+  if(n != 3) return false;
+  char key[3];
+  for(int i = 0 ; i < 3 ; i++)
+  {
+    if(!isalpha((unsigned char)code[i])) return false;
+    key[i] = toupper((unsigned char)code[i]);
+  }
+  int lo = 0, hi = iataCount - 1;
+  while(lo <= hi)
+  {
+    int mid = (lo + hi) / 2;
+    IataRec rec;
+    memcpy_P(&rec, &iataTable[mid], sizeof(rec));
+    int cmp = memcmp(key, rec.iata, 3);
+    if(!cmp)
+    {
+      char icao[5];
+      memcpy(icao, rec.icao, 4); icao[4] = 0;
+      return locationLookupIcao(icao, out);
+    }
+    if(cmp < 0) hi = mid - 1; else lo = mid + 1;
   }
   return false;
 }

@@ -210,6 +210,44 @@ static inline void unpack(uint16_t n, int *r, int *g, int *b)
   *r = (n >> 11) & 31; *g = (n >> 5) & 63; *b = n & 31;
 }
 
+
+// Light unsharp mask on the finished map (restores the edge contrast lost by resampling).
+static void sharpenWork(uint16_t *w)
+{
+  static const int AMT = 5;                                    // 0.5 in tenths
+  // Three source rows (r, g, b) kept unsharpened; in PSRAM so internal RAM stays free for the web pages
+  typedef int8_t Row[MAP_W][3];
+  Row *src = (Row *)heap_caps_malloc(sizeof(Row) * 3, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  if(!src) return;
+  auto load = [&](int row, int slot) {
+    if(row < 0) row = 0; if(row >= MAP_H) row = MAP_H - 1;
+    for(int x = 0 ; x < MAP_W ; x++) { int r, g, b; unpack(swap16(w[row * MAP_W + x]), &r, &g, &b); src[slot][x][0] = r; src[slot][x][1] = g; src[slot][x][2] = b; }
+  };
+  load(0, 0); load(0, 1); load(1, 2);                            // rows -1 (clamped), 0, 1
+  for(int j = 0 ; j < MAP_H ; j++)
+  {
+    if((j & 15) == 0) vTaskDelay(1);
+    for(int x = 0 ; x < MAP_W ; x++)
+    {
+      const int xl = x > 0 ? x - 1 : 0, xr = x < MAP_W - 1 ? x + 1 : x;
+      int o[3];
+      for(int c = 0 ; c < 3 ; c++)
+      {
+        const int centre = src[1][x][c];
+        const int blur = (src[0][x][c] + src[2][x][c] + src[1][xl][c] + src[1][xr][c] + 4 * centre) / 8;
+        int v = centre + (AMT * (centre - blur)) / 10;
+        const int mx = c == 1 ? 63 : 31;
+        o[c] = v < 0 ? 0 : (v > mx ? mx : v);
+      }
+      w[j * MAP_W + x] = swap16((uint16_t)((o[0] << 11) | (o[1] << 5) | o[2]));
+    }
+    // Next row window
+    memcpy(src[0], src[1], sizeof(Row)); memcpy(src[1], src[2], sizeof(Row));
+    load(j + 2, 2);
+  }
+  heap_caps_free(src);
+}
+
 static void buildMapLocked();
 static void buildMap()
 {
@@ -251,10 +289,12 @@ static void buildMapLocked()
   static float colSrc[MAP_W], rowSrc[MAP_H];
   static int16_t colTile[MAP_W], rowTile[MAP_H];
   int tx0, tx1, ty0, ty1;
+  double scaleS = 1.0;                                  // Tile pixels per screen pixel for the zoom finally used
   for(;;)
   {
     const double tileMpp = 156543.03392 * cosLat / (double)(1 << z);
     const double s = targetMpp / tileMpp;
+    scaleS = s;
     const double worldPx = 256.0 * (double)(1 << z);
     const double latR = lat * M_PI / 180.0;
     const double X0 = (lonv + 180.0) / 360.0 * worldPx;
@@ -291,7 +331,7 @@ static void buildMapLocked()
   HTTPClient http;                       // One connection is kept alive for all tiles (same host)
   http.setConnectTimeout(10000);
   http.setTimeout(15000);
-  http.setUserAgent("ATS-Mini-PV2KSM/r30B (+https://github.com/PV2KSM/ats-mini-pv2ksm)");
+  http.setUserAgent("ATS-Mini-PV2KSM/v0t (+https://github.com/PV2KSM/ats-mini-pv2ksm)");
   http.setReuse(true);
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
@@ -331,18 +371,45 @@ static void buildMapLocked()
         if((j & 15) == 0) vTaskDelay(1);                 // Keep the idle task (watchdog) and Wi-Fi running
         if(rowTile[j] != ty) continue;
         const float sy = rowSrc[j];
-        const int iy = (int)sy, iy2 = iy + 1 > 255 ? 255 : iy + 1;
         for(int i = 0 ; i < MAP_W ; i++)
         {
           if(colTile[i] != tx) continue;
           const float sx = colSrc[i];
-          const int ix = (int)sx, ix2 = ix + 1 > 255 ? 255 : ix + 1;
-          int r = 0, g = 0, b = 0, rr, gg, bb;
-          const uint16_t p[4] = {raw[iy * 256 + ix], raw[iy * 256 + ix2], raw[iy2 * 256 + ix], raw[iy2 * 256 + ix2]};
-          for(int k = 0 ; k < 4 ; k++) { unpack(swap16(p[k]), &rr, &gg, &bb); r += rr; g += gg; b += bb; }
-          // Average of 4, light map, dimmed to ~94%
-          if(light) { r = (r * 15) >> 6; g = (g * 15) >> 6; b = (b * 15) >> 6; }
-          else      { r = (r * 11) >> 6; g = (g * 11) >> 6; b = (b * 11) >> 6; }
+          float fr = 0, fg = 0, fb = 0;
+          int rr, gg, bb;
+          if(scaleS < 1.5)
+          {
+            // Bilinear: exact weights of the four nearest tile pixels (sharper than a plain 2x2 average)
+            float x = sx - 0.5f, y = sy - 0.5f;
+            if(x < 0) x = 0; if(y < 0) y = 0;
+            int ix = (int)x, iy2b = (int)y; float fx = x - ix, fy = y - iy2b;
+            const int ix2 = ix + 1 > 255 ? 255 : ix + 1, iyb2 = iy2b + 1 > 255 ? 255 : iy2b + 1;
+            const float w4[4] = {(1 - fx) * (1 - fy), fx * (1 - fy), (1 - fx) * fy, fx * fy};
+            const uint16_t p[4] = {raw[iy2b * 256 + ix], raw[iy2b * 256 + ix2], raw[iyb2 * 256 + ix], raw[iyb2 * 256 + ix2]};
+            for(int k = 0 ; k < 4 ; k++) { unpack(swap16(p[k]), &rr, &gg, &bb); fr += w4[k] * rr; fg += w4[k] * gg; fb += w4[k] * bb; }
+          }
+          else
+          {
+            // Larger reduction: exact area average of the source pixels the screen pixel covers
+            const float hs = (float)scaleS * 0.5f;
+            float x0 = sx - hs, x1 = sx + hs, y0 = sy - hs, y1 = sy + hs;
+            if(x0 < 0) x0 = 0; if(y0 < 0) y0 = 0; if(x1 > 256) x1 = 256; if(y1 > 256) y1 = 256;
+            float wt = 0;
+            for(int yy = (int)y0 ; yy < (int)ceilf(y1) && yy < 256 ; yy++)
+            {
+              const float wy = fminf(y1, yy + 1.0f) - fmaxf(y0, (float)yy);
+              for(int xx = (int)x0 ; xx < (int)ceilf(x1) && xx < 256 ; xx++)
+              {
+                const float wx = fminf(x1, xx + 1.0f) - fmaxf(x0, (float)xx), w = wx * wy;
+                unpack(swap16(raw[yy * 256 + xx]), &rr, &gg, &bb);
+                fr += w * rr; fg += w * gg; fb += w * bb; wt += w;
+              }
+            }
+            if(wt > 0) { fr /= wt; fg /= wt; fb /= wt; }
+          }
+          // Light map dimmed to ~94%, dark map to ~81% (was 69%: too little contrast)
+          const float dim = light ? 0.9375f : 0.8125f;
+          int r = (int)(fr * dim + 0.5f), g = (int)(fg * dim + 0.5f), b = (int)(fb * dim + 0.5f);
           work[j * MAP_W + i] = swap16((uint16_t)((r << 11) | (g << 5) | b));
         }
         if((j & 31) == 31) vTaskDelay(1);
@@ -363,6 +430,7 @@ static void buildMapLocked()
     return;                                         // Keep the error text set by fetchTile/drawPng
   }
 
+  sharpenWork(work);
   diagStage(DG_MAP_PUBLISH);
   lock();
   if(!shown) shown = (uint16_t *)heap_caps_malloc(MAP_W * MAP_H * 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);

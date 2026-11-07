@@ -7,7 +7,6 @@
 #include "Rotary.h"
 #include "Button.h"
 #include "Menu.h"
-#include "News.h"
 #include "Memories.h"
 #include "Patches.h"
 #include "Draw.h"
@@ -23,6 +22,7 @@
 #include "Flights.h"
 #include "Weather.h"
 #include "Finance.h"
+#include "News.h"
 #include "NetStatus.h"
 #include "Radar.h"
 #include "Backup.h"
@@ -233,6 +233,7 @@ void setup()
   // rx.setup(RESET_PIN, 0, MW_BAND_TYPE, SI473X_ANALOG_AUDIO, XOSCEN_RCLK);
 
   // If loading preferences fails...
+  applyCpuSpeed();   // default until the saved value is read below
   if(!prefsLoad(SAVE_SETTINGS|SAVE_VERIFY))
   {
     // Save default preferences
@@ -252,6 +253,7 @@ void setup()
   offTimerRestart();
 
   // If loading memories fails, save default memories
+  applyCpuSpeed();   // saved CPU speed
   if(!prefsLoad(SAVE_MEMORIES|SAVE_VERIFY)) prefsSave(SAVE_MEMORIES);
 
   // If loading bands fails, save default bands

@@ -221,14 +221,26 @@ static void loadCfg()
 
 // ---- Text helpers ----------------------------------------------------------
 
-#include "NewsFold.h"   // FOLD[]: Latin-1 / Latin Extended-A letters folded to ASCII
+#include "NewsFold.h"
+#include "NewsFonts.h" // NewsHead / NewsBody: anti-aliased Latin-1 fonts (VLW)   // FOLD[]: Latin-1 / Latin Extended-A letters folded to ASCII
 
 // Append the ASCII form of one Unicode code point
 static void putCp(char *out, size_t cap, size_t &n, uint32_t cp)
 {
   auto add = [&](const char *s) { while(*s && n + 1 < cap) out[n++] = *s++; };
   if(cp < 0x80) { if(cp < 32) cp = ' '; if(n + 1 < cap) out[n++] = (char)cp; return; }
-  if(cp >= 0xC0 && cp <= 0x17F) { add(FOLD[cp - 0xC0]); return; }
+  // Drawable with the smooth fonts (Latin-1 and common punctuation): kept as UTF-8, accents included
+  auto utf8 = [&](uint32_t u) {
+    if(u < 0x800) { if(n + 2 < cap) { out[n++] = (char)(0xC0 | (u >> 6)); out[n++] = (char)(0x80 | (u & 0x3F)); } }
+    else if(n + 3 < cap) { out[n++] = (char)(0xE0 | (u >> 12)); out[n++] = (char)(0x80 | ((u >> 6) & 0x3F)); out[n++] = (char)(0x80 | (u & 0x3F)); }
+  };
+  if(cp >= 0xA1 && cp <= 0xFF && cp != 0xAD) { utf8(cp); return; }
+  switch(cp)
+  {
+    case 0x2018: case 0x2019: case 0x201C: case 0x201D: case 0x2013: case 0x2014: case 0x2026: case 0x2022: case 0x20AC: case 0x2122: utf8(cp); return;
+    default: break;
+  }
+  if(cp >= 0x100 && cp <= 0x17F) { add(FOLD[cp - 0xC0]); return; }
   switch(cp)
   {
     case 0xA0: case 0x2002: case 0x2003: case 0x2009: case 0x202F: add(" "); break;
@@ -1010,6 +1022,43 @@ static int wrapText(LGFX_Sprite &g, const lgfx::GFXfont &f, const char *t, int x
   return ln;
 }
 
+// Same as wrapText, with an anti-aliased VLW font (accents included)
+static int wrapTextV(LGFX_Sprite &g, const uint8_t *vlw, const char *t, int x, int y, int w, int lh, int maxLines, uint16_t col)
+{
+  g.loadFont(vlw);
+  g.setTextDatum(lgfx::top_left);
+  g.setTextColor(col);
+  char line[200];
+  line[0] = 0;
+  int ln = 0;
+  const char *p = t;
+  while(*p && ln < maxLines)
+  {
+    char word[64];
+    int k = 0;
+    while(p[k] && p[k] != ' ' && k < 62) { word[k] = p[k]; k++; }
+    while(k > 0 && ((uint8_t)p[k] & 0xC0) == 0x80) k--;     // Never cut inside a UTF-8 sequence
+    memcpy(word, p, k);
+    word[k] = 0;
+    char tryl[270];
+    snprintf(tryl, sizeof(tryl), "%s%s%s", line, line[0] ? " " : "", word);
+    if(line[0] && g.textWidth(tryl) > w)
+    {
+      if(ln == maxLines - 1) { strlcat(line, "..", sizeof(line)); break; }
+      g.drawString(line, x, y + ln * lh);
+      ln++;
+      line[0] = 0;
+      continue;
+    }
+    strlcpy(line, tryl, sizeof(line));
+    p += k;
+    while(*p == ' ') p++;
+  }
+  if(line[0] && ln < maxLines) { g.drawString(line, x, y + ln * lh); ln++; }
+  g.unloadFont();
+  return ln;
+}
+
 static void ageText(char *out, size_t size, uint32_t ts)
 {
   out[0] = 0;
@@ -1164,7 +1213,11 @@ void newsDraw(LGFX_Sprite &spr)
   if(show & 2)
   {
     spr.setClipRect(8 + lw + 8, 0, 304 - lw - 8 - clkW, 24);
-    ckText(spr, FontB612Reg12, it.src[0] ? it.src : label, 8 + lw + 8, 7, np.txt2);
+    spr.loadFont(NewsBody);
+    spr.setTextDatum(lgfx::top_left);
+    spr.setTextColor(np.txt2);
+    spr.drawString(it.src[0] ? it.src : label, 8 + lw + 8, 5);
+    spr.unloadFont();
     spr.clearClipRect();
   }
   spr.fillRect(0, 64, 320, 86, band);
@@ -1179,8 +1232,8 @@ void newsDraw(LGFX_Sprite &spr)
   spr.clearClipRect();
 
   const bool hasSum = (show & 1) && it.sum[0];
-  wrapText(spr, FontB612Bold16, it.head, 12, 78, 296, 19, hasSum ? 2 : 3, 0xFFFF);
-  if(hasSum) wrapText(spr, FontB612Reg12, it.sum, 12, 119, 296, 14, 2, np.txt2);
+  wrapTextV(spr, NewsHead, it.head, 12, 77, 296, 19, hasSum ? 2 : 3, 0xFFFF);
+  if(hasSum) wrapTextV(spr, NewsBody, it.sum, 12, 118, 296, 15, 2, np.txt2);
 
   // Footer: dots at the left, position, age and pause at the right, progress line at the bottom
   char age[24], foot[64];

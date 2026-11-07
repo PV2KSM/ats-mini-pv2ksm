@@ -68,6 +68,7 @@ void drawLayoutNew()
   in.squelch = currentSquelch[currentMode] & 0x7f;
   in.sqlSnr = (currentSquelch[currentMode] & 0x80) != 0;
   in.muted = muteOn(MUTE_MAIN);
+  in.sqActive = muteOn(MUTE_SQUELCH);
   in.step = getCurrentStep()->desc;
   in.bw = getCurrentBandwidth()->desc;
   static char agcText[8];
@@ -124,13 +125,6 @@ void drawLayoutNew()
 
   const bool idle = (currentCmd == CMD_NONE || currentCmd == CMD_FREQ);
 
-  if(currentCmd != CMD_SCAN)
-  {
-    static const uint8_t scSty[] = {SC_NANALOG, SC_NSMETER, SC_VINTAGE, SC_CLOCK, SC_MEMORIES, SC_MINIMAL, SC_VFD, SC_LCD, SC_NEON};
-    const int si = uiLayoutIdx - UI_NANALOG;
-    if(si >= 0 && si < 9) scDraw(spr, in, scSty[si], p.acc, p.txt, p.bg1);
-  }
-
   drawSaveIndicator(190, 0);
   drawBleIndicator(204, 0);
   bool has_voltage = drawBattery(BATT_OFFSET_X, BATT_OFFSET_Y);
@@ -163,8 +157,9 @@ void drawLayoutNew()
   }
   if(idle)
   {
-    if(muteOn(MUTE_MAIN)) nu::tag(spr, p, FontB612Bold12, uiText("MUTED"), 5, 163, p.bad, nu::D_BL);
-    else if(muteOn(MUTE_SQUELCH)) nu::tag(spr, p, FontB612Bold12, "SQ", 5, 163, p.bad, nu::D_BL);
+    const int style = SC_NANALOG + (uiLayoutIdx - UI_NANALOG);
+    if(in.muted) scNew(spr, style, uiText("MUTED"));
+    else if(in.sqActive) scNew(spr, style, "SQ");
   }
 
   if(!idle && currentCmd != CMD_SCAN) drawSideBar(currentCmd, MENU_OFFSET_X, MENU_OFFSET_Y, MENU_DELTA_X);

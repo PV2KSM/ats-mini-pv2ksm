@@ -207,6 +207,16 @@ extern uint8_t uiTextWhite;   // Text colour index (see NU_TEXTS)
 extern uint8_t uiBgIdx;       // 0..4 background
 extern uint8_t uiMenuColor;   // 0 = same as the screen, 1..7 = own accent
 extern uint8_t uiMenuStyle;   // 0 original list menus and screens, 1 new look with carousel menus, 2 new look with grid menus
+// Optional functions shown in the radio menu and the web navigation (bit set = shown)
+#define SVC_FLIGHTS 1
+#define SVC_NEWS    2
+#define SVC_WEATHER 4
+#define SVC_FINANCE 8
+extern uint8_t uiSvcMask;     // default 0x0F = all on
+extern uint8_t uiRadarStyle;  // Flights radar: 0 map, 1 A32X, 2 ATCAS, 3 BTCAS, 4 B7X
+extern uint8_t uiTempUnit;   // Weather temperature unit: 0 = Celsius, 1 = Fahrenheit
+extern uint8_t uiCpuIdx;      // CPU speed: 0 = 80 MHz (default), 1 = 160 MHz, 2 = 240 MHz
+void applyCpuSpeed();
 #define uiModern (uiMenuStyle != 0)   // The new look (icon menus, restyled screens) is on for Carousel and Grid
 
 extern int8_t FmAgcIdx;

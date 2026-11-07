@@ -12,6 +12,9 @@ static const char pageNews[] PROGMEM = R"HTML(<H1>{{title}}</H1>
 <FORM ACTION="/news" METHOD="POST">
 <TABLE COLUMNS="2">
   <TR><TH CLASS="HEADING" COLSPAN="2">News screen</TH></TR>
+  <TR><TD CLASS="LABEL">Show News in the radio</TD>
+      <TD><SELECT NAME="svcnews"><OPTION VALUE="1" {{on}}>Yes</OPTION><OPTION VALUE="0" {{off}}>No</OPTION></SELECT><BR>
+      <SMALL>Choose No to hide News from the radio menu.</SMALL></TD></TR>
   <TR><TD CLASS="LABEL">Country</TD>
       <TD><SELECT NAME="ed">{{{editions}}}</SELECT><BR>
       <SMALL>Headlines come from the Google News edition of this country.</SMALL></TD></TR>
@@ -35,7 +38,22 @@ static const char pageNews[] PROGMEM = R"HTML(<H1>{{title}}</H1>
           <LABEL><INPUT TYPE="checkbox" NAME="s2" VALUE="1"{{src}}> Source and age</LABEL></TD></TR>
   <TR><TD COLSPAN="2" CLASS="CENTER"><INPUT TYPE="submit" VALUE="Save"><BR>
       <SMALL>The News item of the radio menu shows the headlines. The radio needs Wi-Fi and the correct time.
-      Google News feeds have no summary. The radio screen has no accents, so they are removed there.</SMALL></TD></TR>
+      Google News feeds have no summary. The radio screen shows accented letters.</SMALL></TD></TR>
+</TABLE>
+</FORM>
+<FORM ACTION="/finance" METHOD="POST">
+<TABLE COLUMNS="2">
+  <TR><TH CLASS="HEADING" COLSPAN="2">Finance screen</TH></TR>
+  <TR><TD CLASS="LABEL">Show Finance in the radio</TD>
+      <TD><SELECT NAME="svcfinance"><OPTION VALUE="1" {{fon}}>Yes</OPTION><OPTION VALUE="0" {{foff}}>No</OPTION></SELECT></TD></TR>
+  <TR><TD CLASS="LABEL">Local currency</TD>
+      <TD><SELECT NAME="currency">{{{currencies}}}</SELECT><BR>
+      <SMALL>All values are converted to this currency. Rates come from Coinbase (Bitcoin, Ethereum) and the European Central Bank via Frankfurter (dollar, euro, pound). The radio needs Wi-Fi and the correct time.</SMALL></TD></TR>
+  <TR><TD CLASS="LABEL">Card 1</TD><TD><SELECT NAME="fin0">{{{fin0}}}</SELECT></TD></TR>
+  <TR><TD CLASS="LABEL">Card 2</TD><TD><SELECT NAME="fin1">{{{fin1}}}</SELECT></TD></TR>
+  <TR><TD CLASS="LABEL">Card 3</TD><TD><SELECT NAME="fin2">{{{fin2}}}</SELECT></TD></TR>
+  <TR><TD COLSPAN="2" CLASS="CENTER"><INPUT TYPE="submit" VALUE="Save"><BR>
+      <SMALL>Pick what each of the three cards of the Finance screen shows.</SMALL></TD></TR>
 </TABLE>
 </FORM>
 <H2 STYLE="font-size:16px;margin:18px 0 4px">Current news and QR code</H2>

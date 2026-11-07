@@ -167,7 +167,7 @@ static void anDraw(G &g, const CkIn &in, const CkColors &c, float sNeedle, float
   const int w = FontB612Bold16.glyph['0' - 32].xAdvance;
   char fs[16];
   int rightEdge;
-  const int rightX = 198;
+  const int rightX = 158;   // header text ends before the Save / Bluetooth icons (x 190)
   if(in.mode == 0)
   {
     snprintf(fs, sizeof(fs), "%u.%02u", (unsigned)(in.freq / 1000000), (unsigned)((in.freq % 1000000) / 10000));
@@ -185,22 +185,23 @@ static void anDraw(G &g, const CkIn &in, const CkColors &c, float sNeedle, float
   ckDigitUnderline(g, in, c, rightEdge, w, w, w, 18);
 
   // Tuning glass
-  g.fillRoundRect(6, 20, 308, 46, 6, an::cream);
-  g.drawRoundRect(6, 20, 308, 46, 6, 0x7B07);
-  an::tuneScale(g, in, 6, 314, 22, 42, an::ink, 0xE0E3);
+  // (starts below y 36 so the MUTED / SQ label has the same corner as in the other layouts)
+  g.fillRoundRect(6, 38, 308, 32, 6, an::cream);
+  g.drawRoundRect(6, 38, 308, 32, 6, 0x7B07);
+  an::tuneScale(g, in, 6, 314, 40, 28, an::ink, 0xE0E3);
 
   // Dials
   char sv[8], nv[8];
   snprintf(sv, sizeof(sv), "%d", in.rssi);
   snprintf(nv, sizeof(nv), "%d dB", in.snr);
-  g.setClipRect(0, 70, 320, 100);
-  an::dial(g, 80, 72, true, sNeedle, "S", sv, c.freq);
-  an::dial(g, 240, 72, false, nNeedle, "SNR", nv, c.freq);
+  g.setClipRect(0, 72, 320, 98);
+  an::dial(g, 80, 74, true, sNeedle, "S", sv, c.freq, 96);
+  an::dial(g, 240, 74, false, nNeedle, "SNR", nv, c.freq, 96);
   g.clearClipRect();
 
   // Station name (RDS / EiBi) on top of the S dial, clipped to the dial
   if(in.station && in.station[0])
-    ckNameFit(g, FontB612Bold12, in.station, 14, 73, 138, an::ink);
+    ckNameFit(g, FontB612Bold12, in.station, 14, 75, 138, an::ink);
 }
 
 // Needle targets 0..1 from the receiver values
