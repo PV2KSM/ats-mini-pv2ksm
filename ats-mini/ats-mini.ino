@@ -19,6 +19,18 @@
 #include "TcpMode.h"
 #include "Splash.h"
 #include "Web.h"
+#include "Flights.h"
+#include "Weather.h"
+#include "Finance.h"
+#include "News.h"
+#include "NetStatus.h"
+#include "Radar.h"
+#include "Backup.h"
+#include "Map.h"
+#include "Location.h"
+#include "Diag.h"
+#include <Preferences.h>
+#include <esp_task_wdt.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -112,6 +124,11 @@ SI4735_fixed rx;
 //
 void setup()
 {
+  diagBegin();
+  // The network workers (flights, weather, map) run on core 0 at the same priority and can keep it
+  // busy (TLS handshake, JSON, PNG) for more than 5 s, which starved the idle task and tripped the
+  // task watchdog. Stop watching the idle tasks; keep a long safety timeout for subscribed tasks.
+  { esp_task_wdt_config_t wc = {}; wc.timeout_ms = 30000; wc.idle_core_mask = 0; wc.trigger_panic = true; esp_task_wdt_reconfigure(&wc); }
   // Keep the C library clock in UTC; display offsets are applied separately.
   setenv("TZ", "UTC0", 1);
   tzset();
@@ -216,6 +233,7 @@ void setup()
   // rx.setup(RESET_PIN, 0, MW_BAND_TYPE, SI473X_ANALOG_AUDIO, XOSCEN_RCLK);
 
   // If loading preferences fails...
+  applyCpuSpeed();   // default until the saved value is read below
   if(!prefsLoad(SAVE_SETTINGS|SAVE_VERIFY))
   {
     // Save default preferences
@@ -235,10 +253,26 @@ void setup()
   offTimerRestart();
 
   // If loading memories fails, save default memories
+  applyCpuSpeed();   // saved CPU speed
   if(!prefsLoad(SAVE_MEMORIES|SAVE_VERIFY)) prefsSave(SAVE_MEMORIES);
 
   // If loading bands fails, save default bands
   if(!prefsLoad(SAVE_BANDS|SAVE_VERIFY)) prefsSave(SAVE_BANDS);
+
+  // One time: use Sao Paulo time (UTC-3). Brazil has no daylight saving time.
+  {
+    Preferences tz;
+    if(tz.begin("pv2ksm", false))
+    {
+      if(!tz.getBool("tz3", false))
+      {
+        for(int i = 0 ; i < getTotalUTCOffsets() ; i++) if(utcOffsets[i].offset == -3 * 4) { utcOffsetIdx = i; break; }
+        prefsRequestSave(SAVE_SETTINGS);
+        tz.putBool("tz3", true);
+      }
+      tz.end();
+    }
+  }
 
   // Audio Amplifier Enable. G8PTN: Added
   // After the SI4732 has been setup, enable the audio amplifier
@@ -269,6 +303,13 @@ void setup()
 
   // Connect WiFi, if necessary
   netInit(wifiModeIdx);
+  locationBegin();
+  flightsBegin();
+  mapBegin();
+  weatherBegin();
+  financeBegin();
+  newsBegin();
+  radarBegin();
 
   // Start Bluetooth LE, if necessary
   bleInit(bleModeIdx);
@@ -799,7 +840,7 @@ void loop()
   // Disable commands control
   if((currentTime - elapsedCommand) > ELAPSED_COMMAND)
   {
-    if(currentCmd != CMD_NONE && currentCmd != CMD_SEEK && currentCmd != CMD_SCAN && currentCmd != CMD_MEMORY)
+    if(currentCmd != CMD_NONE && currentCmd != CMD_SEEK && currentCmd != CMD_SCAN && currentCmd != CMD_MEMORY && currentCmd != CMD_FLIGHTS && currentCmd != CMD_WEATHER && currentCmd != CMD_FINANCE && currentCmd != CMD_NEWS && currentCmd != CMD_NETWORK)
     {
       currentCmd = CMD_NONE;
       needRedraw = true;
@@ -843,6 +884,17 @@ void loop()
   // Apply queued web operations, then advance WiFi and time synchronization.
   needRedraw |= webTick();
   needRedraw |= netTickTime();
+  needRedraw |= flightsTick();
+  needRedraw |= weatherTick();
+  needRedraw |= financeTick();
+  needRedraw |= newsTick();
+  needRedraw |= netStatusTick();
+  backupTick();
+  needRedraw |= newTick();
+  needRedraw |= cockpitTick();
+  needRedraw |= analogTick();
+  needRedraw |= avionicsTick();
+  needRedraw |= locationTick();
 
   // Update clock display
   needRedraw |= clockUpdate();

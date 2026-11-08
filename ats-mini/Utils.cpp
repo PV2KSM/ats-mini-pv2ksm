@@ -1,3 +1,4 @@
+#include "I18n.h"
 #include <driver/rtc_io.h>
 #include <driver/gpio.h>
 #include <esp_timer.h>
@@ -92,8 +93,8 @@ static uint32_t statusDuration;
 
 void statusShow(const char *line1, const char *line2, uint32_t duration)
 {
-  strlcpy(statusLines[0], line1? line1 : "", sizeof(statusLines[0]));
-  strlcpy(statusLines[1], line2? line2 : "", sizeof(statusLines[1]));
+  strlcpy(statusLines[0], line1? uiText(line1) : "", sizeof(statusLines[0]));
+  strlcpy(statusLines[1], line2? uiText(line2) : "", sizeof(statusLines[1]));
   statusStarted = millis();
   statusDuration = (statusLines[0][0] || statusLines[1][0])? duration : 0;
   statusDirty = true;

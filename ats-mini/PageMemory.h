@@ -8,8 +8,9 @@ static const char pageMemoryTitle[] PROGMEM = "ATS-Mini Memory";
 static const char pageMemory[] PROGMEM = R"HTML(<STYLE>
   TABLE.MEMORY { border-collapse: collapse; margin-bottom: 1em; }
   .MEMORY TH, .MEMORY TD { padding: 0.5em 0.125em; }
-  .MEMORY THEAD TH { background-color: #80A0FF; text-align: left; font-size: 0.75em; }
-  .MEMORY TBODY TR:nth-child(even) { background-color: #EDF2FF; }
+  .MEMORY THEAD TH { background: var(--head); color: var(--acc); text-align: left; font-size: 0.75em; text-transform: uppercase; letter-spacing: .06em; }
+  .MEMORY TBODY TR:nth-child(even) { background: color-mix(in srgb, var(--head) 55%, transparent); }
+  .MEMORY TH, .MEMORY TD { border-top: 1px solid var(--line); }
   .MEMORY INPUT, .MEMORY SELECT { box-sizing: border-box; min-width: 0; width: auto; padding: 0.4em 0.1em; font: inherit; }
   .MEMORY INPUT { width: 100%; }
   .MEMORY INPUT[data-field=freq] { max-width: 12ch; text-align: right; font-variant-numeric: tabular-nums; }

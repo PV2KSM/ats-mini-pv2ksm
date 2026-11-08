@@ -12,6 +12,15 @@
 #include <WiFi.h>
 #include <esp_app_desc.h>
 #include <esp_app_format.h>
+#include "I18n.h"
+
+// "Failed: <reason>" shown on the radio in the current language (the web page translates its own copy)
+static const char *otaMsgTr(const String &m, char *buf, size_t n)
+{
+  if(!m.startsWith("Failed: ")) return m.c_str();
+  snprintf(buf, n, "%s%s", uiLang == LANG_PT ? "Falha: " : uiLang == LANG_ES ? "Fallo: " : "Failed: ", uiText(m.c_str() + 8));
+  return buf;
+}
 
 #define OTA_HTTP_TIMEOUT_SECONDS 15
 
@@ -210,7 +219,7 @@ OtaStatus otaStatus()
 static void otaDrawProgress()
 {
   OtaStatus status = otaStatus();
-  statusShow("Updating Firmware", status.message.c_str(), 0);
+  { char tb[96]; statusShow("Updating Firmware", otaMsgTr(status.message, tb, sizeof(tb)), 0); }
   drawScreen();
 }
 
@@ -226,6 +235,8 @@ bool otaRequestLatest(bool install)
 
 static bool otaDownloadLatest(bool install)
 {
+  // PV2KSM mod: the online check looks at the original project's releases, which would replace this firmware.
+  return otaFail("Mod: use Manual upload.");
   ota.phase = OTA_CONNECTING;
   otaDrawProgress();
   if(WiFi.status() != WL_CONNECTED)
@@ -377,6 +388,6 @@ void otaTick()
   {
     currentCmd = CMD_NONE;
     OtaStatus status = otaStatus();
-    statusShow("Updating Firmware", status.message.c_str());
+    { char tb[96]; statusShow("Updating Firmware", otaMsgTr(status.message, tb, sizeof(tb))); }
   }
 }

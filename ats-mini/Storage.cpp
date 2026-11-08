@@ -1,6 +1,8 @@
 #include "Common.h"
 #include "Storage.h"
+#include "NewUI.h"
 #include "Themes.h"
+#include "I18n.h"
 #include "Utils.h"
 #include "Menu.h"
 #include "Memories.h"
@@ -221,6 +223,16 @@ void prefsSave(uint32_t items)
     prefs.putBool("AudioClamp",   audioClamp);     // Hardware audio clamp present
     prefs.putUChar("DSPPatchset", dspPatchesIdx);  // DSP patches
     prefs.putUChar("UILayout",    uiLayoutIdx);    // UI Layout
+    prefs.putUChar("UiAccent",    uiAccent);
+    prefs.putUChar("UiTextW",     uiTextWhite);
+    prefs.putUChar("UiBg",        uiBgIdx);
+    prefs.putUChar("UiMenuCol",   uiMenuColor);
+    prefs.putUChar("UiMenuSty",   uiMenuStyle);
+    prefs.putUChar("UiCpu",       uiCpuIdx);
+    prefs.putUChar("TempUnit",    uiTempUnit);
+    prefs.putUChar("RadarStyle",  uiRadarStyle);
+    prefs.putUChar("UiSvc",       uiSvcMask);
+    prefs.putUChar("Lang",        uiLang);         // Language of the extra screens
     prefs.putUChar("BLEMode",     bleModeIdx);     // Bluetooth mode
     prefs.putUChar("USBMode",     usbModeIdx);     // USB mode
     prefs.putUChar("TCPMode",     tcpModeIdx);     // TCP mode
@@ -310,6 +322,18 @@ bool prefsLoad(uint32_t items)
     audioClamp     = prefs.getBool("AudioClamp", true);        // Hardware audio clamp present
     dspPatchesIdx  = prefs.getUChar("DSPPatchset", DSP_PATCHES_DEFAULT); // Uploaded patch set
     uiLayoutIdx    = prefs.getUChar("UILayout", uiLayoutIdx);   // UI Layout
+    if(uiLayoutIdx > UI_NEON) uiLayoutIdx = UI_DEFAULT;
+    uiAccent       = prefs.getUChar("UiAccent", uiAccent);   if(uiAccent >= NU_ACCENTS) uiAccent = 0;
+    uiTextWhite    = prefs.getUChar("UiTextW", uiTextWhite); if(uiTextWhite >= NU_TEXTS) uiTextWhite = 1;
+    uiBgIdx        = prefs.getUChar("UiBg", uiBgIdx);        if(uiBgIdx >= NU_BGS) uiBgIdx = 0;
+    uiMenuColor    = prefs.getUChar("UiMenuCol", uiMenuColor); if(uiMenuColor > 7) uiMenuColor = 0;
+    uiMenuStyle    = prefs.getUChar("UiMenuSty", uiMenuStyle); if(uiMenuStyle > 2) uiMenuStyle = 0;
+    uiTempUnit     = prefs.getUChar("TempUnit", uiTempUnit); if(uiTempUnit > 1) uiTempUnit = 0;
+    uiRadarStyle   = prefs.getUChar("RadarStyle", uiRadarStyle); if(uiRadarStyle > 4) uiRadarStyle = 0;
+    uiCpuIdx       = prefs.getUChar("UiCpu", uiCpuIdx); if(uiCpuIdx > 2) uiCpuIdx = 0;
+    uiSvcMask      = prefs.getUChar("UiSvc", uiSvcMask) & 0x0F;
+    uiLang         = prefs.getUChar("Lang", uiLang);            // Language of the extra screens
+    if(uiLang >= LANG_TOTAL) uiLang = LANG_EN;
     bleModeIdx     = prefs.getUChar("BLEMode", bleModeIdx);     // Bluetooth mode
     usbModeIdx     = prefs.getUChar("USBMode", usbModeIdx);     // USB mode
     tcpModeIdx     = prefs.getUChar("TCPMode", TCP_OFF);        // TCP mode

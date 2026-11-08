@@ -24,6 +24,8 @@ static constexpr const lgfx::IFont* FONT_DIGITS  = &lgfx::fonts::Font7;  // 48px
 #define AUTHORS_LINE2  "Volos Projects, Ralph Xavier, Sunnygold,"
 #define AUTHORS_LINE3  "Goshante, G8PTN (Dave), R9UCL (Max Arnold),"
 #define AUTHORS_LINE4  "Marat Fayzullin"
+#define MOD_LINE1      "Modified by PV2KSM"
+#define MOD_LINE2      "Flights, weather, map, new UI, web control"
 
 #define VER_APP        245  // Firmware version
 #define VER_OTA          1  // OTA compatibility; bump when a full USB flash is required
@@ -200,6 +202,22 @@ extern int8_t scrollDirection;
 extern bool encoderHalfStep;
 extern uint8_t utcOffsetIdx;
 extern uint8_t uiLayoutIdx;
+extern uint8_t uiAccent;      // 0..6 accent colour
+extern uint8_t uiTextWhite;   // Text colour index (see NU_TEXTS)
+extern uint8_t uiBgIdx;       // 0..4 background
+extern uint8_t uiMenuColor;   // 0 = same as the screen, 1..7 = own accent
+extern uint8_t uiMenuStyle;   // 0 original list menus and screens, 1 new look with carousel menus, 2 new look with grid menus
+// Optional functions shown in the radio menu and the web navigation (bit set = shown)
+#define SVC_FLIGHTS 1
+#define SVC_NEWS    2
+#define SVC_WEATHER 4
+#define SVC_FINANCE 8
+extern uint8_t uiSvcMask;     // default 0x0F = all on
+extern uint8_t uiRadarStyle;  // Flights radar: 0 map, 1 A32X, 2 ATCAS, 3 BTCAS, 4 B7X
+extern uint8_t uiTempUnit;   // Weather temperature unit: 0 = Celsius, 1 = Fahrenheit
+extern uint8_t uiCpuIdx;      // CPU speed: 0 = 80 MHz (default), 1 = 160 MHz, 2 = 240 MHz
+void applyCpuSpeed();
+#define uiModern (uiMenuStyle != 0)   // The new look (icon menus, restyled screens) is on for Carousel and Grid
 
 extern int8_t FmAgcIdx;
 extern int8_t AmAgcIdx;

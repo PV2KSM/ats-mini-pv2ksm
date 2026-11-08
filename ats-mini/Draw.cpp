@@ -1,3 +1,4 @@
+#include "I18n.h"
 #include "Common.h"
 #include "Themes.h"
 #include "Storage.h"
@@ -5,6 +6,12 @@
 #include "Menu.h"
 #include "BleMode.h"
 #include "Draw.h"
+#include "Flights.h"
+#include "Weather.h"
+#include "Finance.h"
+#include "News.h"
+#include "NetStatus.h"
+#include "NewUI.h"
 
 //
 // Draw preferences write indicator
@@ -71,11 +78,39 @@ void drawWiFiIndicator(int x, int y)
 //
 // Draw operation status
 //
+NuPal nuCurrentPalette();
 bool drawStatus(int x, int y)
 {
   if(statusLines[0][0] || statusLines[1][0])
   {
-    // Draw two lines of operation status
+    if(uiModern || uiLayoutIdx >= UI_NEW_FIRST)
+    {
+      // Two lines of status on a dark rounded box, centred, so the text stays readable over any screen
+      spr.setFont(FONT_SMALL);
+      int tw = max(spr.textWidth(statusLines[0]), spr.textWidth(statusLines[1])) + 24;
+      if(tw > 300) tw = 300;
+      const int nl = statusLines[1][0] ? 2 : 1;
+      const int bh = nl * 17 + 10, bx = 160 - tw / 2, by = 85 - bh / 2;
+      const NuPal np = nuCurrentPalette();
+      spr.fillRoundRect(bx, by, tw, bh, 8, np.bg2);
+      spr.drawRoundRect(bx, by, tw, bh, 8, np.acc);
+      spr.drawRoundRect(bx + 1, by + 1, tw - 2, bh - 2, 7, ckMix(np.bg1, np.acc, 70));
+      spr.setTextDatum(TC_DATUM);
+      spr.setTextColor(np.txt);
+      spr.drawString(statusLines[0], 160, by + 6, FONT_SMALL);
+      if(nl > 1) spr.drawString(statusLines[1], 160, by + 23, FONT_SMALL);
+      return(true);
+    }
+    // Draw two lines of operation status, on a plain box in the theme colours so they stay readable over the layout
+    {
+      spr.setFont(FONT_SMALL);
+      int tw = max(spr.textWidth(statusLines[0]), spr.textWidth(statusLines[1])) + 12;
+      if(tw > 316) tw = 316;
+      const int nl = statusLines[1][0] ? 2 : 1;
+      int bx = x - tw / 2; if(bx < 2) bx = 2; if(bx + tw > 318) bx = 318 - tw;
+      spr.fillRect(bx, y - 3, tw, nl * 17 + 5, TH.bg);
+      spr.drawRect(bx, y - 3, tw, nl * 17 + 5, TH.text_muted);
+    }
     spr.setTextDatum(TC_DATUM);
     spr.setTextColor(TH.rds_text);
     spr.drawString(statusLines[0], x, y, FONT_SMALL);
@@ -91,12 +126,12 @@ bool drawStatus(int x, int y)
 //
 void drawZoomedMenu(const char *text, bool force)
 {
-  if (!zoomMenu && !force) return;
+  if((!zoomMenu || uiModern) && !force) return;
 
   spr.fillSmoothRoundRect(RDS_OFFSET_X - 72 + 1, RDS_OFFSET_Y - 3 + 1, 152, 26, 4, TH.menu_bg);
   spr.setTextDatum(TC_DATUM);
   spr.setTextColor(TH.menu_item);
-  spr.drawString(text, RDS_OFFSET_X + 5, RDS_OFFSET_Y, FONT_LARGE);
+  spr.drawString(uiText(text), RDS_OFFSET_X + 5, RDS_OFFSET_Y, FONT_LARGE);
   spr.drawRoundRect(RDS_OFFSET_X - 72, RDS_OFFSET_Y - 3, 154, 28, 4, TH.menu_border);
 }
 
@@ -387,8 +422,17 @@ void drawLongStationName(const char *name, int x, int y)
 //
 // Draw scan graphs
 //
-void drawScanGraphs(uint32_t freq)
+void drawScanGraphs(uint32_t freq, const NuPal *pal)
 {
+  uint16_t cGrid = TH.scan_grid, cSnr = TH.scan_snr, cRssi = TH.scan_rssi, cPtr = TH.scale_pointer;
+  if(!pal) spr.fillRect(0, 124, 320, 46, TH.bg);   // Original layouts: plain background so the graph does not mix with the screen
+  if(pal)
+  {
+    // New layouts: a panel in the theme colours behind the graph, so it does not mix with the screen elements
+    spr.fillRect(0, 126, 320, 44, pal->bg2);
+    spr.drawFastHLine(0, 126, 320, pal->acc);
+    cGrid = pal->cardLine; cSnr = pal->good; cRssi = pal->acc; cPtr = pal->needle;
+  }
   // Scale offset
   const uint32_t step = currentMode == FM ? 100000 : 10000;
   int16_t offset = (uint64_t)(freq % step) * 8 / step;
@@ -409,30 +453,30 @@ void drawScanGraphs(uint32_t freq)
     {
       if((tickFreq % (5 * step)) == 0) {
         for(int y=0; y<42; y+=2) {
-          spr.drawPixel(x, 169-y, TH.scan_grid);
+          spr.drawPixel(x, 169-y, cGrid);
         }
       }
 
       if((tickFreq+step) <= maxFreq) {
         for(int xd=x; xd<(x+8); xd+=2) {
-          spr.drawPixel(xd, 169-40, TH.scan_grid);
-          spr.drawPixel(xd, 169-30, TH.scan_grid);
-          spr.drawPixel(xd, 169-20, TH.scan_grid);
-          spr.drawPixel(xd, 169-10, TH.scan_grid);
-          spr.drawPixel(xd, 169-0, TH.scan_grid);
+          spr.drawPixel(xd, 169-40, cGrid);
+          spr.drawPixel(xd, 169-30, cGrid);
+          spr.drawPixel(xd, 169-20, cGrid);
+          spr.drawPixel(xd, 169-10, cGrid);
+          spr.drawPixel(xd, 169-0, cGrid);
         }
         int snr1 = 40 * scanGetSNR(tickFreq);
         int snr2 = 40 * scanGetSNR(tickFreq+step);
-        spr.drawLine(x, 169-snr1, x+8, 169-snr2, TH.scan_snr);
+        spr.drawLine(x, 169-snr1, x+8, 169-snr2, cSnr);
         int rssi1 = 40 * scanGetRSSI(tickFreq);
         int rssi2 = 40 * scanGetRSSI(tickFreq+step);
-        spr.drawLine(x, 169-rssi1, x+8, 169-rssi2, TH.scan_rssi);
+        spr.drawLine(x, 169-rssi1, x+8, 169-rssi2, cRssi);
       }
     }
   }
   // Scale pointer
-  spr.fillTriangle(156, 125, 160, 130, 164, 125, TH.scale_pointer);
-  spr.drawLine(160, 130, 160, 169, TH.scale_pointer);
+  spr.fillTriangle(156, 125, 160, 130, 164, 125, cPtr);
+  spr.drawLine(160, 130, 160, 169, cPtr);
 }
 
 //
@@ -441,6 +485,11 @@ void drawScanGraphs(uint32_t freq)
 void drawScreen()
 {
   if(sleepOn()) return;
+  if(currentCmd == CMD_FLIGHTS) { flightsDraw(spr); spr.pushSprite(0, 0); return; }
+  if(currentCmd == CMD_WEATHER) { weatherDraw(spr); return; }
+  if(currentCmd == CMD_NETWORK) { netStatusDraw(spr); spr.pushSprite(0, 0); return; }
+  if(currentCmd == CMD_FINANCE) { financeDraw(spr); spr.pushSprite(0, 0); return; }
+  if(currentCmd == CMD_NEWS) { newsDraw(spr); spr.pushSprite(0, 0); return; }
 
   // Clear screen buffer
   spr.fillSprite(TH.bg);
@@ -452,15 +501,30 @@ void drawScreen()
     return;
   }
 
+  if(uiLayoutIdx >= UI_NEW_FIRST) drawLayoutNew();
+  else
   switch(uiLayoutIdx)
   {
     case UI_SMETER:
       drawLayoutSmeter();
       break;
+    case UI_COCKPIT:
+      drawLayoutCockpit();
+      break;
+    case UI_ANALOG:
+      drawLayoutAnalog();
+      break;
+    case UI_AVIONICS:
+      drawLayoutAvionics();
+      break;
     default:
       drawLayoutDefault();
       break;
   }
+
+  // Original layouts draw their scale and meters after the side bar: repaint the full-screen menu on top
+  if(uiLayoutIdx < UI_NEW_FIRST && sideBarFullScreen(currentCmd))
+    drawSideBar(currentCmd, MENU_OFFSET_X, MENU_OFFSET_Y, MENU_DELTA_X);
 
   spr.pushSprite(0, 0);
 }

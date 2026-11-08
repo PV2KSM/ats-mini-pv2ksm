@@ -4,6 +4,86 @@ The user manual is available at <https://esp32-si4732.github.io/ats-mini/manual.
 
 <!-- towncrier release notes start -->
 
+## PV2KSM r30D (2026-11-07) - Services tabs, weather by city, flight radar styles, realistic sky
+
+### Added
+
+- Flights radar styles: besides the map, four cockpit looks (A32X, ATCAS, BTCAS, B7X) with collision-risk colours and de-overlapped labels. Choose on the web Flights page or on the radio in Visual -> Flights radar, with a live preview behind the menu.
+- Weather by city (with country code) and flights by airport ICAO or IATA code, set independently.
+- Services web pages split into Weather, Flights and News/Finance, each with a "show on the radio" Yes/No. Temperature unit moved to the Weather page; Finance moved under News with a choice of currency and three cards (USD, EUR, GBP, BTC, ETH).
+- Realistic procedural weather sky (clouds, sun, moon, stars, rain, snow, fog, lightning) on the Weather screen.
+- News screen uses a smooth font with accented letters, and a dot-matrix world map per language.
+- NAnalog and Vintage layouts share the same frame; Visual -> Flights radar in PT/EN/ES.
+
+### Fix
+
+- Layout overlaps reported by Dave (G8PTN) in issue #5 confirmed fixed on OSPI.
+
+### Changed
+
+- Each service (Weather, Flights, News, Finance) can be hidden from the radio with a Yes/No on its web page.
+- Web navigation grouped in five sections; web server task stack raised to 8 KB (fixes a reboot when saving Config).
+- Language review of every new text (PT/EN/ES).
+
+Tested by the author on an OSPI radio. Not hardware-tested on QSPI and LilyGO.
+
+## PV2KSM r30C (2026-11-01) - News, layout fixes, full language review
+
+### Added
+
+- News screen (menu "News"): headlines from Google News (by country) or a feed of your own, TV-style layout with an animated search, a QR code on a short press to read the article on a phone, and a web page with the list and links. Fetched only while the screen is open.
+
+### Fix
+
+- Station names (including EiBi) scroll inside their field instead of overlapping other items in the Cockpit, Cessna, Analog and new layouts.
+- SQL/MUTE chips and the Cockpit STBY label no longer collide with the Wi-Fi/battery banner.
+- Web Status weather summary follows the language of the page.
+
+### Changed
+
+- Language review (PT/EN/ES): original menu, option values, pop-ups, status lines, About screen, RDS program types, Cockpit weather card, dates, and web page messages.
+
+Not hardware-tested by the author on QSPI and LilyGO; News/QR checked on the OSPI build only.
+
+## PV2KSM r30B (2026-11-01) - Scan screens, web Control, OpenStreetMap
+
+### Fix
+
+- Frequency digit cursor in the new layouts; MUTED/SQ badges, station names and status messages no longer overlap or lack a background.
+- Carousel/Grid menus over the original layouts: the side bar no longer covers the menu icons and the info box is no longer drawn in the middle of the screen.
+
+### Added
+
+- Scan screen for every new layout and for Cockpit, Analog and Avionics, with frequency, RSSI, SNR, scale and peak. Default and S-Meter keep the classic Scan graph.
+- Web Control tab: fixed radio screen on top, encoder buttons (rotate, click, short press), volume, signal, go-to frequency, band and mode (PT/EN/ES).
+- Rain radar page in the Weather screen of the new look.
+- OpenStreetMap is the preconfigured map source (no key needed); CARTO removed and old settings migrated; attribution on the map and in About.
+
+### Notes
+
+- Online update is disabled in the mod (use Manual upload).
+- Known issue: Bluetooth Ad hoc mode can stop the web interface responding on some radios; cause not found yet.
+- Hardware status is in docs/pv2ksm/RELEASE-r30B.md.
+
+## PV2KSM r30A (2026-10-31) - graphics update
+
+### Fix
+
+- Web UI Location page showed stale Show map / Map style values right after Save (issue #3).
+- Flights screen without a map now follows the Background setting instead of always black (issue #3).
+
+### Added
+
+- New look, opt-in: Menu > Visual > Menu style (Original / Carousel / Grid). Carousel and Grid turn on icon menus, restyled editors, a centred status box and restyled Finance, Network and Weather screens. Original is the default and keeps the r30 look.
+- New Visual menu with UI Layout, Theme, Accent, Text color, Background, Menu color and Menu style (moved from Settings). UI Layout and Theme preview the main screen behind the selector.
+- Nine new main screens: Neo Analog, Neo S-Meter, Vintage, Clock, Memories, Minimal, VFD, LCD, Neon.
+- Carousel and Grid menu names follow the language setting (PT/EN/ES). Web Config has selectors for the new options (translated).
+
+### Notes
+
+- CPU stays at 80 MHz; icons are cached and lightly anti-aliased to keep the new graphics smooth.
+- Hardware status is in docs/pv2ksm/RELEASE-r30A.md.
+
 ## 2.45 (2026-10-22)
 
 

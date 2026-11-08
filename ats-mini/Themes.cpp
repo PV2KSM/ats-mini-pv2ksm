@@ -531,6 +531,149 @@ ColorTheme theme[] =
     0xE73C, // scan_snr
     0xE73C, // scan_rssi
   },
+
+  {
+    "Cockpit",
+    0x0000, // bg
+    0xFFFF, // text
+    0x9537, // text_muted
+    0xFD80, // text_warn
+    0x06BF, // smeter_icon
+    0x0732, // smeter_bar
+    0xF9E5, // smeter_bar_plus
+    0x1925, // smeter_bar_empty
+    0xFD80, // save_icon
+    0x06BF, // stereo_icon
+    0x7C12, // rf_icon
+    0x6FF0, // rf_icon_conn
+    0xFFFF, // batt_voltage
+    0x9537, // batt_border
+    0x6FF0, // batt_full
+    0xF9E5, // batt_low
+    0x0000, // batt_charge
+    0xFD80, // batt_icon
+    0x06BF, // band_text
+    0xFFFF, // mode_text
+    0x320A, // mode_border
+    0x0062, // box_bg
+    0x06BF, // box_border
+    0xFFFF, // box_text
+    0xF9E5, // box_off_bg
+    0xFFFF, // box_off_text
+    0x0062, // menu_bg
+    0x06BF, // menu_border
+    0xFFFF, // menu_hdr
+    0xBEFE, // menu_item
+    0x022C, // menu_hl_bg
+    0xFFFF, // menu_hl_text
+    0x6FF0, // menu_param
+    0x6FF0, // freq_text
+    0x06BF, // funit_text
+    0xFD80, // freq_hl
+    0xFFE0, // freq_hl_sel
+    0xFB7F, // rds_text
+    0x9537, // scale_text
+    0xFB7F, // scale_pointer
+    0x320A, // scale_line
+    0x320A, // scan_grid
+    0x05BF, // scan_snr
+    0x0732, // scan_rssi
+  },
+
+  {
+    "Analog",
+    0x1881, // bg
+    0xF738, // text
+    0xACAD, // text_muted
+    0xB964, // text_warn
+    0xFD84, // smeter_icon
+    0xFD84, // smeter_bar
+    0xB964, // smeter_bar_plus
+    0x3922, // smeter_bar_empty
+    0xFD84, // save_icon
+    0xFD84, // stereo_icon
+    0xACAD, // rf_icon
+    0x964A, // rf_icon_conn
+    0xF738, // batt_voltage
+    0xACAD, // batt_border
+    0x964A, // batt_full
+    0xB964, // batt_low
+    0x1881, // batt_charge
+    0xFD84, // batt_icon
+    0xFD84, // band_text
+    0xF738, // mode_text
+    0x7AA5, // mode_border
+    0x0840, // box_bg
+    0x7AA5, // box_border
+    0xF738, // box_text
+    0xB964, // box_off_bg
+    0xF738, // box_off_text
+    0x0840, // menu_bg
+    0x7AA5, // menu_border
+    0xF738, // menu_hdr
+    0xDE75, // menu_item
+    0x6A22, // menu_hl_bg
+    0xF738, // menu_hl_text
+    0xFD84, // menu_param
+    0xFD84, // freq_text
+    0xCC63, // funit_text
+    0xF738, // freq_hl
+    0xFF0C, // freq_hl_sel
+    0xFD84, // rds_text
+    0xACAD, // scale_text
+    0xFD84, // scale_pointer
+    0x7AA5, // scale_line
+    0x3922, // scan_grid
+    0xFD84, // scan_snr
+    0xF738, // scan_rssi
+  },
+  {
+    "Avionics",
+    0x39E8, // bg
+    0xEF5C, // text
+    0xA534, // text_muted
+    0xFD84, // text_warn
+    0xF986, // smeter_icon
+    0x6F2A, // smeter_bar
+    0xF986, // smeter_bar_plus
+    0x19E3, // smeter_bar_empty
+    0xFD84, // save_icon
+    0xFFE0, // stereo_icon
+    0x8C71, // rf_icon
+    0x6F2A, // rf_icon_conn
+    0xEF5C, // batt_voltage
+    0xCE58, // batt_border
+    0x6F2A, // batt_full
+    0xF986, // batt_low
+    0x39E8, // batt_charge
+    0xFD84, // batt_icon
+    0xFFE0, // band_text
+    0xEF5C, // mode_text
+    0x7BD0, // mode_border
+    0x1082, // box_bg
+    0x7BD0, // box_border
+    0xEF5C, // box_text
+    0xF986, // box_off_bg
+    0xEF5C, // box_off_text
+    0x1082, // menu_bg
+    0x7BD0, // menu_border
+    0xEF5C, // menu_hdr
+    0xCE58, // menu_item
+    0x68C3, // menu_hl_bg
+    0xFFFF, // menu_hl_text
+    0xFD84, // menu_param
+    0xF986, // freq_text
+    0xCE58, // funit_text
+    0xCE58, // freq_hl
+    0xFF00, // freq_hl_sel
+    0xFD84, // rds_text
+    0xA534, // scale_text
+    0xF986, // scale_pointer
+    0x7BD0, // scale_line
+    0x4249, // scan_grid
+    0xFD84, // scan_snr
+    0xF986, // scan_rssi
+  },
 };
 
 uint8_t themeIdx = 0;

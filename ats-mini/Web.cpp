@@ -13,12 +13,25 @@
 #include "Patches.h"
 #include "PageTemplate.h"
 #include "PageCommon.h"
+#include "WebI18n.h"
 #include "PageStatus.h"
 #include "PageMemory.h"
 #include "PageConfig.h"
 #include "PageWiFi.h"
 #include "PageUpdate.h"
 #include "PagePatches.h"
+#include "PageControl.h"
+#include "PageLocation.h"
+#include "PageFinance.h"
+#include "PageServices.h"
+#include "PageNews.h"
+#include "News.h"
+#include "PageBackup.h"
+#include "Finance.h"
+#include "NewUI.h"
+#include "Backup.h"
+#include "Location.h"
+#include "Diag.h"
 
 #include <new>
 #include <mutex>
@@ -29,6 +42,7 @@
 #include <LittleFS.h>
 #include <time.h>
 #include <esp_heap_caps.h>
+#include "I18n.h"
 
 #define SPLASH_MAX_FILE_SIZE (512U * 1024U)
 
@@ -65,14 +79,39 @@ static struct
   std::mutex mutex;
   bool pending = false;
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
-  int usbMode, tcpMode, bleMode, rds;
+  int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
+  int accent, textCol, bgCol, menuCol, menuStyle, cpuIdx;
   bool clamp, reverseScroll, halfStep, zoom;
   bool setClock;
   uint32_t epoch;
 } configSettings;
 
 static std::atomic<int> pendingWiFiMode{-1};
+
+// Receiver controls requested from the web, applied by the main task in webTick()
+static struct
+{
+  std::mutex mutex;
+  bool pending = false;
+  int64_t freq = -1;     // Hz, -1 = unchanged
+  int band = -1;
+  int mode = -1;
+  int volume = -1;
+  int step = 0;          // Tuning steps to move, positive or negative
+  char nav[16];          // Encoder actions in order: 'R' rotate cw, 'r' ccw, 'e' click, 'E' short press
+  int navCount = 0;
+} radioCmd;
+
+static void webControlPage(AsyncWebServerRequest *request);
+static void webApiStatus(AsyncWebServerRequest *request);
+static void webApiTune(AsyncWebServerRequest *request);
+static void webLocationPage(AsyncWebServerRequest *request, const LocationInfo &shown, const char *message);
+static void webSetLocation(AsyncWebServerRequest *request);
+static void webServicesPage(AsyncWebServerRequest *request, const char *message);
+static void webNewsPage(AsyncWebServerRequest *request, const char *message);
+static void webApplySvc(AsyncWebServerRequest *request, const char *field, uint8_t bit);
+static bool webApplyRadio();
 
 struct SplashUploadState
 {
@@ -153,7 +192,8 @@ void webScreenshotTick()
 bool webTick()
 {
   otaTick();
-  bool redraw = patchesTick();
+  bool redraw = webApplyRadio();
+  redraw |= patchesTick();
   std::unique_lock<std::mutex> lock(configSettings.mutex);
   if(configSettings.pending)
   {
@@ -166,6 +206,10 @@ bool webTick()
     zoomMenu = configSettings.zoom;
     setEncoderHalfStep(configSettings.halfStep);
     uiLayoutIdx = configSettings.layout;
+    uiAccent = configSettings.accent; uiTextWhite = configSettings.textCol; uiBgIdx = configSettings.bgCol;
+    uiMenuColor = configSettings.menuCol; uiMenuStyle = configSettings.menuStyle;
+    if(uiCpuIdx != configSettings.cpuIdx) { uiCpuIdx = configSettings.cpuIdx; applyCpuSpeed(); }
+    if(configSettings.lang >= 0 && configSettings.lang < LANG_TOTAL) uiLang = configSettings.lang;
     if(FmRegionIdx != configSettings.region)
       doFmRegion(configSettings.region - FmRegionIdx);
     if(fmStereoIdx != configSettings.stereo)
@@ -224,6 +268,167 @@ void webInit()
     request->send(200, "text/html", webRadioPage());
   });
 
+  server.on("/control", HTTP_GET, webControlPage);
+  server.on("/api/status", HTTP_GET, webApiStatus);
+  server.on("/api/tune", HTTP_POST, webApiTune);
+  server.on("/location", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webLocationPage(request, locationGet(), "");
+  });
+  server.on("/location", HTTP_POST, webSetLocation);
+
+  // News: country, topics, city, own feed; the Test button runs in the news task
+  server.on("/news", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webNewsPage(request, "");
+  });
+  server.on("/news", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    NewsCfg c;
+    newsGetCfg(&c);
+    auto val = [&](const char *name) -> String { const auto *p = request->getParam(name, true); return p ? p->value() : String(); };
+    c.edition = (uint8_t)val("ed").toInt();
+    strlcpy(c.query, val("q").c_str(), sizeof(c.query));
+    strlcpy(c.url, val("url").c_str(), sizeof(c.url));
+    c.topics = 0;
+    for(int i = 0 ; i < NEWS_TOPICS ; i++)
+    {
+      char n[4];
+      snprintf(n, sizeof(n), "t%d", i);
+      if(request->hasParam(n, true)) c.topics |= (uint16_t)(1u << i);
+    }
+    c.refreshMin = (uint8_t)val("ref").toInt();
+    c.secs = (uint8_t)val("sec").toInt();
+    c.show = (request->hasParam("s1", true) ? 1 : 0) | (request->hasParam("s2", true) ? 2 : 0);
+    webApplySvc(request, "svcnews", SVC_NEWS);
+    const char *error = newsSetCfg(c);
+    webNewsPage(request, error ? error : "Saved. Open News in the radio menu.");
+  });
+  server.on("/api/news/test", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    const auto *p = request->getParam("url", true);
+    newsRequestTest(p ? p->value().c_str() : "");
+    request->send(200, "text/plain", "ok");
+  });
+  server.on("/api/news/test", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    char msg[96], head[128], sum[192];
+    int count = 0;
+    const int st = newsTestResult(msg, sizeof(msg), head, sizeof(head), sum, sizeof(sum), &count);
+    auto esc = [](const char *s) { String o; for( ; *s ; s++) { if(*s == '"' || *s == '\\') { o += '\\'; o += *s; } else if((uint8_t)*s >= 32) o += *s; } return o; };
+    String j = "{\"state\":" + String(st) + ",\"count\":" + String(count) + ",\"msg\":\"" + esc(msg) + "\",\"head\":\"" + esc(head) + "\",\"sum\":\"" + esc(sum) + "\"}";
+    request->send(200, "application/json", j);
+  });
+
+  server.on("/api/news/link", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    const auto *p = request->getParam("i");
+    char *url = (char *)malloc(1001);
+    if(url && p && newsLinkItem(p->value().toInt(), url, 1001)) request->redirect(String(url));
+    else request->send(404, "text/plain", "No address for this item");
+    free(url);
+  });
+  server.on("/api/news/list", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    auto esc = [](const char *s) { String o; for( ; *s ; s++) { if(*s == '"' || *s == '\\') { o += '\\'; o += *s; } else if((uint8_t)*s >= 32) o += *s; } return o; };
+    String j = "[";
+    char head[112], src[28];
+    int len;
+    bool qr;
+    for(int i = 0 ; newsListItem(i, head, sizeof(head), src, sizeof(src), &len, &qr) ; i++)
+    {
+      if(i) j += ",";
+      j += "{\"h\":\"" + esc(head) + "\",\"s\":\"" + esc(src) + "\",\"n\":" + String(len) + ",\"q\":" + String(qr ? 1 : 0) + "}";
+    }
+    j += "]";
+    request->send(200, "application/json", j);
+  });
+
+  // Weather: show switch, city and temperature unit
+  server.on("/services", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webServicesPage(request, "");
+  });
+  server.on("/services", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webApplySvc(request, "svcweather", SVC_WEATHER);
+    const auto *tu = request->getParam("tempunit", true);
+    uiTempUnit = tu && tu->value().toInt() == 1 ? 1 : 0;
+    prefsRequestSave(SAVE_SETTINGS);
+    const auto *wc = request->getParam("wxcity", true);
+    String city = wc ? wc->value() : String();
+    city.trim();
+    const char *cityError = wxPlaceRequestCity(city.c_str());
+    webServicesPage(request, cityError ? (String(cityError) + " The weather city was not saved.").c_str() : "Saved.");
+  });
+
+  // Finance lives inside the News page: the old address goes there
+  server.on("/finance", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    request->redirect("/news");
+  });
+  server.on("/finance", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webApplySvc(request, "svcfinance", SVC_FINANCE);
+    const auto *p = request->getParam("currency", true);
+    const char *error = financeRequestCurrency(p ? p->value().c_str() : "");
+    if(!error)
+    {
+      uint8_t s[3];
+      for(int i = 0 ; i < 3 ; i++)
+      {
+        char n[5];
+        snprintf(n, sizeof(n), "fin%d", i);
+        const auto *q = request->getParam(n, true);
+        s[i] = q ? (uint8_t)q->value().toInt() : (uint8_t)(i == 0 ? 0 : i == 1 ? 1 : 3);
+      }
+      error = financeRequestSlots(s);
+    }
+    webNewsPage(request, error ? error : "Saved. Open Finance in the radio menu.");
+  });
+
+  // Backup: export and import everything
+  server.on("/backup", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    request->send(200, "text/html", webPage(pageBackup, pageBackupTitle, {{"title", pageBackupTitle}}, {
+      {"navigation", [](String &out) { webNavigation(out, "/backup"); }}
+    }));
+  });
+  server.on("/backup.json", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    const auto *s = request->getParam("secrets");
+    String json;
+    backupExport(json, s && s->value() == "1");
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json);
+    response->addHeader("Content-Disposition", "attachment; filename=\"ats-mini-backup.json\"");
+    response->addHeader("Cache-Control", "no-store");
+    request->send(response);
+  });
+  server.on("/backup/import", HTTP_POST,
+    [] (AsyncWebServerRequest *request) {
+      if(!webIsAuthenticated(request)) return request->requestAuthentication();
+      uint8_t *buf = (uint8_t *)request->_tempObject;
+      if(!buf) return request->send(400, "text/plain", "No data received.");
+      size_t len;
+      memcpy(&len, buf, sizeof(len));
+      char msg[96];
+      int n = backupImport((const char *)buf + sizeof(len), len, msg, sizeof(msg));
+      request->send(n >= 0 ? 200 : 400, "text/plain", msg);
+      if(n >= 0) backupRestartSoon();
+    },
+    nullptr,
+    [] (AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+      if(total == 0 || total > 90000) return;
+      if(index == 0)
+      {
+        uint8_t *b = (uint8_t *)heap_caps_malloc(total + sizeof(size_t) + 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if(!b) return;
+        memcpy(b, &total, sizeof(total));
+        request->_tempObject = b;
+      }
+      uint8_t *b = (uint8_t *)request->_tempObject;
+      if(b) memcpy(b + sizeof(size_t) + index, data, len);
+    });
+
   server.on("/memory", HTTP_GET, [] (AsyncWebServerRequest *request) {
     if(!webIsAuthenticated(request)) return request->requestAuthentication();
     request->send(200, "text/html", webMemoryPage());
@@ -240,6 +445,10 @@ void webInit()
     request->send(200, "text/html", webWiFiPage());
   });
   server.on("/wifi", HTTP_POST, webSetWiFi);
+
+  server.on("/i18n.js", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    request->send_P(200, "application/javascript", (const uint8_t *)webI18nJs, sizeof(webI18nJs) - 1);
+  });
 
   server.on("/screenshot.bmp", HTTP_GET, [] (AsyncWebServerRequest *request) {
     if(!webIsAuthenticated(request)) return request->requestAuthentication();
@@ -403,9 +612,17 @@ void webSetConfig(AsyncWebServerRequest *request)
   if(!webIsAuthenticated(request)) return request->requestAuthentication();
 
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
-  int usbMode, tcpMode, bleMode, rds;
+  int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
+  int accent, textCol, bgCol, menuCol, menuStyle, cpuIdx;
   if(!webConfigNumber(request, "uilayout", layout, 0, getTotalUILayouts() - 1) ||
+     !webConfigNumber(request, "uiaccent", accent, 0, NU_ACCENTS - 1) ||
+     !webConfigNumber(request, "uitext", textCol, 0, NU_TEXTS - 1) ||
+     !webConfigNumber(request, "uibg", bgCol, 0, NU_BGS - 1) ||
+     !webConfigNumber(request, "uimenucol", menuCol, 0, NU_ACCENTS) ||
+     !webConfigNumber(request, "uimenustyle", menuStyle, 0, 2) ||
+     !webConfigNumber(request, "uicpu", cpuIdx, 0, 2) ||
+     !webConfigNumber(request, "lang", lang, 0, getTotalLanguages() - 1) ||
      !webConfigNumber(request, "fmregion", region, 0, getTotalFMRegions() - 1) ||
      !webConfigNumber(request, "fmstereo", stereo, 0, getTotalFMStereoModes() - 1) ||
      !webConfigNumber(request, "brightness", brightness, 10, 255, 5) ||
@@ -484,6 +701,9 @@ void webSetConfig(AsyncWebServerRequest *request)
     configSettings.setClock = setClock;
     configSettings.epoch = setClock? epoch : 0;
     configSettings.layout = layout;
+    configSettings.accent = accent; configSettings.textCol = textCol; configSettings.bgCol = bgCol;
+    configSettings.menuCol = menuCol; configSettings.menuStyle = menuStyle; configSettings.cpuIdx = cpuIdx;
+    configSettings.lang = lang;
     configSettings.region = region;
     configSettings.stereo = stereo;
     configSettings.brightness = brightness;
@@ -581,7 +801,7 @@ static String webPage(const char *body, const char *title, std::initializer_list
 {
   String page;
   pageReserve(page, sizeof(pageStart) + strlen(title) + strlen(body) + sizeof(pageEnd) + 64);
-  pageAppend(page, pageStart, {{"title", title}});
+  pageAppend(page, pageStart, {{"title", title}, {"lang", uiLang==LANG_PT? "pt" : uiLang==LANG_ES? "es" : "en"}});
   pageAppend(page, body, values, fragments);
   pageReserve(page, sizeof(pageEnd) + 64);
   // Snapshot after allocating the page, before the HTTP response copies it.
@@ -638,8 +858,19 @@ static const String webRadioPage()
     ssid = String(RECEIVER_NAME);
   }
 
+  char lastReset[200];
+  diagText(lastReset, sizeof(lastReset));
+  const LocationInfo loc = locationGet();
+  char latText[16], lonText[16];
+  snprintf(latText, sizeof(latText), "%.4f", loc.lat);
+  snprintf(lonText, sizeof(lonText), "%.4f", loc.lon);
+  const String freqBig = currentMode == FM ? String(currentFrequency / 1000000.0, 1) : String(currentFrequency / 1000.0, currentMode == AM ? 0 : 2);
+  const String freqUnit = currentMode == FM ? "MHz" : "kHz";
+
   return webPage(pageStatus, pageStatusTitle, {
     {"title", pageStatusTitle},
+    {"lastreset", lastReset}, {"lat", latText}, {"lon", lonText}, {"locname", loc.name}, {"label", loc.label}, {"icao", loc.icao},
+    {"frequency_big", freqBig}, {"frequency_unit", freqUnit}, {"volume", String((int)volume)},
     {"ip", ip}, {"ssid", ssid},
     {"mac", String(getMACAddress())}, {"version", String(getVersion(true))},
     {"time", receiverTime}, {"band", getCurrentBand()->bandName},
@@ -648,6 +879,421 @@ static const String webRadioPage()
   }, {
     {"navigation", [](String &out) { webNavigation(out, "/"); }}
   });
+}
+
+//
+// Receiver control from the web (queued, applied on the main task)
+//
+static void webControlPage(AsyncWebServerRequest *request)
+{
+  if(!webIsAuthenticated(request)) return request->requestAuthentication();
+  request->send(200, "text/html", webPage(pageControl, pageControlTitle, {
+    {"title", pageControlTitle}
+  }, {
+    {"navigation", [](String &out) { webNavigation(out, "/control"); }},
+    {"bands", [](String &out) {
+      for(int i = 0 ; i < getTotalBands() ; i++)
+      {
+        char range[40];
+        if(bands[i].bandType == FM_BAND_TYPE)
+          snprintf(range, sizeof(range), "%.1f-%.1f MHz", bands[i].minimumFreq / 1e6, bands[i].maximumFreq / 1e6);
+        else
+          snprintf(range, sizeof(range), "%.0f-%.0f kHz", bands[i].minimumFreq / 1e3, bands[i].maximumFreq / 1e3);
+        String text = String(bands[i].bandName) + " (" + range + ")";
+        out += "<OPTION VALUE=\"" + String(i) + "\">";
+        pageAppend(out, "{{text}}", {{"text", text}});
+        out += "</OPTION>";
+      }
+    }}
+  }));
+}
+
+static void webApiStatus(AsyncWebServerRequest *request)
+{
+  if(!webIsAuthenticated(request)) return request->requestAuthentication();
+  const Band *band = getCurrentBand();
+  String json;
+  json.reserve(256);
+  json += "{\"freq\":";     json += String((uint32_t)currentFrequency);
+  json += ",\"mode\":";     json += String((int)currentMode);
+  json += ",\"modeName\":\""; json += bandModeDesc[currentMode]; json += "\"";
+  json += ",\"band\":";     json += String(bandIdx);
+  json += ",\"bandName\":\""; json += band->bandName; json += "\"";
+  json += ",\"min\":";      json += String(band->minimumFreq);
+  json += ",\"max\":";      json += String(band->maximumFreq);
+  json += ",\"step\":";     json += String(getCurrentStep()->step);
+  json += ",\"volume\":";   json += String((int)volume);
+  json += ",\"rssi\":";     json += String((int)rssi);
+  json += ",\"snr\":";      json += String((int)snr);
+  // Station name (RDS / schedule lookup): printable ASCII only, JSON-escaped
+  json += ",\"station\":\"";
+  for(const char *c = getStationName() ; c && *c ; c++)
+    if(*c >= 32 && *c < 127 && *c != '"' && *c != '\\') json += *c;
+  json += "\"";
+  // RDS extras (only filled while the radio's RDS mode collects them)
+  auto jsonText = [&](const char *key, const char *text, size_t maxLen)
+  {
+    json += ",\""; json += key; json += "\":\"";
+    size_t n = 0;
+    for(const char *c = text ; c && *c && n < maxLen ; c++)
+      if(*c >= 32 && *c < 127 && *c != '"' && *c != '\\') { json += *c; n++; }
+    json += "\"";
+  };
+  jsonText("rt", getRadioText(), 80);
+  jsonText("pty", getProgramInfo(), 20);
+  { char pi[8]; const uint16_t code = getRdsPiCode(); if(code) snprintf(pi, sizeof(pi), "%04X", code); else pi[0] = 0; jsonText("pi", pi, 6); }
+  json += "}";
+  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json);
+  response->addHeader("Cache-Control", "no-store");
+  request->send(response);
+}
+
+static bool webParseInt(AsyncWebServerRequest *request, const char *name, long minValue, long maxValue, long *out)
+{
+  const auto *p = request->getParam(name, true);
+  if(!p) return false;
+  const String &v = p->value();
+  if(!v.length()) return false;
+  char *end = nullptr;
+  long n = strtol(v.c_str(), &end, 10);
+  if(*end || n < minValue || n > maxValue) return false;
+  *out = n;
+  return true;
+}
+
+static void webApiTune(AsyncWebServerRequest *request)
+{
+  if(!webIsAuthenticated(request)) return request->requestAuthentication();
+  long freq = -1, band = -1, mode = -1, vol = -1, step = 0;
+  bool any = false;
+  if(request->hasParam("freq", true))
+  {
+    if(!webParseInt(request, "freq", 100000, 120000000, &freq)) return request->send(400, "text/plain", "Invalid frequency.");
+    any = true;
+  }
+  if(request->hasParam("band", true))
+  {
+    if(!webParseInt(request, "band", 0, getTotalBands() - 1, &band)) return request->send(400, "text/plain", "Invalid band.");
+    any = true;
+  }
+  if(request->hasParam("mode", true))
+  {
+    if(!webParseInt(request, "mode", 0, 3, &mode)) return request->send(400, "text/plain", "Invalid mode.");
+    any = true;
+  }
+  if(request->hasParam("volume", true))
+  {
+    if(!webParseInt(request, "volume", 0, 63, &vol)) return request->send(400, "text/plain", "Invalid volume.");
+    any = true;
+  }
+  if(request->hasParam("step", true))
+  {
+    if(!webParseInt(request, "step", -50, 50, &step)) return request->send(400, "text/plain", "Invalid step.");
+    any = true;
+  }
+  char navCode = 0;
+  if(request->hasParam("nav", true))
+  {
+    const String v = request->getParam("nav", true)->value();
+    if(v == "cw") navCode = 'R'; else if(v == "ccw") navCode = 'r'; else if(v == "click") navCode = 'e'; else if(v == "short") navCode = 'E';
+    else return request->send(400, "text/plain", "Invalid navigation command.");
+    any = true;
+  }
+  if(!any) return request->send(400, "text/plain", "Nothing to do.");
+
+  {
+    std::lock_guard<std::mutex> lock(radioCmd.mutex);
+    if(freq >= 0) radioCmd.freq = freq;
+    if(band >= 0) radioCmd.band = band;
+    if(mode >= 0) radioCmd.mode = mode;
+    if(vol >= 0)  radioCmd.volume = vol;
+    radioCmd.step += step;
+    if(navCode && radioCmd.navCount < (int)sizeof(radioCmd.nav)) radioCmd.nav[radioCmd.navCount++] = navCode;
+    radioCmd.pending = true;
+  }
+  request->send(200, "application/json", "{\"ok\":true}");
+}
+
+static void webSwitchBand(int target)
+{
+  if(target < 0 || target >= getTotalBands() || target == bandIdx) return;
+  bands[bandIdx].bandMode = currentMode;
+  bandIdx = target;
+  selectBand(bandIdx);
+  prefsRequestSave(SAVE_SETTINGS | SAVE_BANDS);
+}
+
+// Runs on the main task, so the receiver is never touched concurrently
+static bool webApplyRadio()
+{
+  int64_t freq;
+  int band, mode, vol, step;
+  char nav[sizeof(radioCmd.nav)];
+  int navCount;
+  {
+    std::lock_guard<std::mutex> lock(radioCmd.mutex);
+    if(!radioCmd.pending) return false;
+    freq = radioCmd.freq; band = radioCmd.band; mode = radioCmd.mode;
+    vol = radioCmd.volume; step = radioCmd.step;
+    navCount = radioCmd.navCount; memcpy(nav, radioCmd.nav, sizeof(nav)); radioCmd.navCount = 0;
+    radioCmd.pending = false;
+    radioCmd.freq = -1; radioCmd.band = -1; radioCmd.mode = -1; radioCmd.volume = -1; radioCmd.step = 0;
+  }
+
+  if(band >= 0) webSwitchBand(band);
+
+  // SSB/AM mode: same behaviour as the encoder (FM never changes mode)
+  if(mode > 0 && currentMode != FM)
+    for(int guard = 0 ; guard < 4 && currentMode != mode ; guard++) doMode(1);
+
+  if(freq > 0)
+  {
+    // Switch to the narrowest band that contains the frequency if the current one does not
+    const Band *b = getCurrentBand();
+    if(freq < (int64_t)b->minimumFreq || freq > (int64_t)b->maximumFreq)
+    {
+      int best = -1;
+      uint32_t bestWidth = 0xFFFFFFFF;
+      for(int i = 0 ; i < getTotalBands() ; i++)
+      {
+        uint32_t width = bands[i].maximumFreq - bands[i].minimumFreq;
+        if(freq >= (int64_t)bands[i].minimumFreq && freq <= (int64_t)bands[i].maximumFreq && width < bestWidth)
+        { best = i; bestWidth = width; }
+      }
+      if(best >= 0) webSwitchBand(best);
+    }
+    if(updateFrequency(freq, false))
+    {
+      clearStationInfo();
+      identifyFrequency(currentFrequency);
+      prefsRequestSave(SAVE_CUR_BAND);
+    }
+  }
+
+  if(step)
+  {
+    updateFrequency(currentFrequency + (int64_t)step * getCurrentStep()->step, true);
+    clearStationInfo();
+    identifyFrequency(currentFrequency);
+    prefsRequestSave(SAVE_CUR_BAND);
+  }
+
+  if(vol >= 0)
+  {
+    volume = vol;
+    rx.setVolume(volume);
+    prefsRequestSave(SAVE_SETTINGS);
+  }
+
+  // Encoder actions from the Control tab: same handlers as the encoder and the Bluetooth remote
+  for(int i = 0 ; i < navCount ; i++)
+  {
+    if(nav[i] == 'R') handleRotation(1, 1);
+    else if(nav[i] == 'r') handleRotation(-1, -1);
+    else if(nav[i] == 'e') handleClick(false);
+    else if(nav[i] == 'E') handleClick(true);
+  }
+  return true;
+}
+
+// "Show in the radio" switch of a page: a Yes/No select named like the field
+static void webApplySvc(AsyncWebServerRequest *request, const char *field, uint8_t bit)
+{
+  const auto *p = request->getParam(field, true);
+  if(!p) return;
+  if(p->value().toInt() == 1) uiSvcMask |= bit; else uiSvcMask &= ~bit;
+  prefsRequestSave(SAVE_SETTINGS);
+}
+
+static void webNewsPage(AsyncWebServerRequest *request, const char *message)
+{
+  NewsCfg c;
+  newsGetCfg(&c);
+  const String msg(message), query(c.query), url(c.url);
+  const String on(uiSvcMask & SVC_NEWS ? "SELECTED" : ""), off(uiSvcMask & SVC_NEWS ? "" : "SELECTED");
+  const String fon(uiSvcMask & SVC_FINANCE ? "SELECTED" : ""), foff(uiSvcMask & SVC_FINANCE ? "" : "SELECTED");
+  char finCur[4];
+  financeGetCurrency(finCur, sizeof(finCur));
+  uint8_t finSlots[3];
+  financeGetSlots(finSlots);
+  request->send(200, "text/html", webPage(pageNews, pageNewsTitle, {
+    {"title", pageNewsTitle}, {"message", msg}, {"query", query}, {"url", url}, {"on", on}, {"off", off}, {"fon", fon}, {"foff", foff},
+    {"sum", (c.show & 1) ? " checked" : ""}, {"src", (c.show & 2) ? " checked" : ""}
+  }, {
+    {"navigation", [](String &out) { webNavigation(out, "/news"); }},
+    {"currencies", [&](String &out) {
+      const char *list = financeCurrencyList();
+      for(const char *p = list ; *p ; p += (p[3] ? 4 : 3))
+      {
+        char code[4];
+        memcpy(code, p, 3);
+        code[3] = 0;
+        out += "<OPTION VALUE=\""; out += code; out += "\"";
+        if(!strcmp(code, finCur)) out += " SELECTED";
+        out += ">"; out += code; out += "</OPTION>";
+      }
+    }},
+    {"fin0", [&](String &out) { for(int i = 0 ; i < financeItemCount() ; i++) { out += "<OPTION VALUE=\""; out += i; out += "\""; if(i == finSlots[0]) out += " SELECTED"; out += ">"; out += financeItemName(i); out += "</OPTION>"; } }},
+    {"fin1", [&](String &out) { for(int i = 0 ; i < financeItemCount() ; i++) { out += "<OPTION VALUE=\""; out += i; out += "\""; if(i == finSlots[1]) out += " SELECTED"; out += ">"; out += financeItemName(i); out += "</OPTION>"; } }},
+    {"fin2", [&](String &out) { for(int i = 0 ; i < financeItemCount() ; i++) { out += "<OPTION VALUE=\""; out += i; out += "\""; if(i == finSlots[2]) out += " SELECTED"; out += ">"; out += financeItemName(i); out += "</OPTION>"; } }},
+    {"editions", [&](String &out) {
+      for(int i = 0 ; i < newsEditionCount() ; i++)
+      {
+        out += "<OPTION VALUE=\""; out += i; out += "\"";
+        if(i == c.edition) out += " SELECTED";
+        out += ">"; out += newsEditionName(i); out += "</OPTION>";
+      }
+    }},
+    {"topics", [&](String &out) {
+      for(int i = 0 ; i < NEWS_TOPICS ; i++)
+      {
+        out += "<LABEL><INPUT TYPE=\"checkbox\" NAME=\"t"; out += i; out += "\" VALUE=\"1\"";
+        if(c.topics & (1u << i)) out += " CHECKED";
+        out += "> "; out += newsTopicName(i); out += "</LABEL> ";
+      }
+    }},
+    {"refresh", [&](String &out) {
+      static const uint8_t mins[] = {15, 30, 60};
+      for(uint8_t m : mins)
+      {
+        out += "<OPTION VALUE=\""; out += m; out += "\""; if(m == c.refreshMin) out += " SELECTED";
+        out += ">"; if(m == 60) out += "1 hour"; else { out += m; out += " min"; } out += "</OPTION>";
+      }
+    }},
+    {"seconds", [&](String &out) {
+      static const uint8_t secs[] = {6, 8, 10, 12, 15, 20, 30};
+      for(uint8_t v : secs)
+      {
+        out += "<OPTION VALUE=\""; out += v; out += "\""; if(v == c.secs) out += " SELECTED";
+        out += ">"; out += v; out += " s</OPTION>";
+      }
+    }}
+  }));
+}
+
+static void webServicesPage(AsyncWebServerRequest *request, const char *message)
+{
+  const String msg(message);
+  const String on(uiSvcMask & SVC_WEATHER ? "SELECTED" : ""), off(uiSvcMask & SVC_WEATHER ? "" : "SELECTED");
+  const String tc(uiTempUnit == 0 ? "selected" : ""), tf(uiTempUnit == 1 ? "selected" : "");
+  const WxPlace wxp = wxPlaceGet();
+  const String wxCityShown(wxp.city);
+  const String wxFoundShown(!wxp.city[0] ? "-" : wxp.resolved ? wxp.name : "...");
+  request->send(200, "text/html", webPage(pageServices, pageServicesTitle, {
+    {"title", pageServicesTitle}, {"message", msg}, {"on", on}, {"off", off},
+    {"wxcity", wxCityShown}, {"wxfound", wxFoundShown}, {"tempc", tc}, {"tempf", tf}
+  }, {
+    {"navigation", [](String &out) { webNavigation(out, "/services"); }}
+  }));
+}
+
+//
+// Observer position (Flights and Weather)
+//
+static void webLocationPage(AsyncWebServerRequest *request, const LocationInfo &shown, const char *message)
+{
+  char lat[16], lon[16];
+  snprintf(lat, sizeof(lat), "%.5f", shown.lat);
+  snprintf(lon, sizeof(lon), "%.5f", shown.lon);
+  char mapUrlBuf[160];
+  bool mapOnShown = true;
+  uint8_t mapStyleShown = MAP_STYLE_LIGHT;
+  locationGetMapCfg(mapUrlBuf, sizeof(mapUrlBuf), &mapOnShown, &mapStyleShown);
+  const String mapUrlShown(mapUrlBuf);
+  const String on(uiSvcMask & SVC_FLIGHTS ? "SELECTED" : ""), off(uiSvcMask & SVC_FLIGHTS ? "" : "SELECTED");
+  const String rs0(uiRadarStyle == 0 ? "SELECTED" : ""), rs1(uiRadarStyle == 1 ? "SELECTED" : ""), rs2(uiRadarStyle == 2 ? "SELECTED" : ""),
+               rs3(uiRadarStyle == 3 ? "SELECTED" : ""), rs4(uiRadarStyle == 4 ? "SELECTED" : "");
+  const uint8_t mapSrcShown = strstr(mapUrlBuf, "tile.openstreetmap.org") ? MAP_SRC_OSM : MAP_SRC_CUSTOM;
+  request->send(200, "text/html", webPage(pageLocation, pageLocationTitle, {
+    {"title", pageLocationTitle}, {"message", message},
+    {"on", on}, {"off", off}, {"rs0", rs0}, {"rs1", rs1}, {"rs2", rs2}, {"rs3", rs3}, {"rs4", rs4},
+    {"icao", shown.icao}, {"lat", lat}, {"lon", lon},
+    {"name", shown.name}, {"label", shown.label}, {"radius", String(shown.radiusNm)},
+    {"keystate", shown.hasCartoKey ? "stored" : "not set"}, {"count", String(locationAirportCount())},
+    {"mapurl", mapUrlShown}, {"srcosm", mapSrcShown == MAP_SRC_OSM ? "selected" : ""}, {"srccustom", mapSrcShown == MAP_SRC_CUSTOM ? "selected" : ""}, {"mapchecked", mapOnShown ? "checked" : ""},
+    {"sdark", mapStyleShown == MAP_STYLE_DARK ? "selected" : ""}, {"slight", mapStyleShown == MAP_STYLE_LIGHT ? "selected" : ""}, {"sauto", mapStyleShown == MAP_STYLE_AUTO ? "selected" : ""}
+  }, {
+    {"navigation", [](String &out) { webNavigation(out, "/location"); }}
+  }));
+}
+
+static void webSetLocation(AsyncWebServerRequest *request)
+{
+  if(!webIsAuthenticated(request)) return request->requestAuthentication();
+
+  auto field = [&](const char *name) -> String {
+    const auto *p = request->getParam(name, true);
+    String v = p ? p->value() : String();
+    v.trim();
+    return v;
+  };
+
+  LocationInfo current = locationGet();
+  LocationInfo next = current;
+
+  String icao = field("icao");
+  icao.toUpperCase();
+  if(icao.length())
+  {
+    LocationInfo airport;
+    if(!locationLookupAirport(icao.c_str(), &airport))
+      return webLocationPage(request, current, "ICAO or IATA code not found in the airport table. Nothing was saved.");
+    next.lat = airport.lat;
+    next.lon = airport.lon;
+    strlcpy(next.icao, airport.icao, sizeof(next.icao));
+    String name = field("name");
+    strlcpy(next.name, name.length() && name != current.name ? name.c_str() : airport.name, sizeof(next.name));
+    String label = field("label");
+    strlcpy(next.label, label.length() && label != current.label ? label.c_str() : airport.icao, sizeof(next.label));
+  }
+  else
+  {
+    String latText = field("lat"), lonText = field("lon");
+    char *endLat = nullptr, *endLon = nullptr;
+    float lat = strtof(latText.c_str(), &endLat);
+    float lon = strtof(lonText.c_str(), &endLon);
+    if(!latText.length() || !lonText.length() || *endLat || *endLon)
+      return webLocationPage(request, current, "Latitude and longitude must be numbers. Nothing was saved.");
+    next.lat = lat;
+    next.lon = lon;
+    next.icao[0] = 0;
+    String name = field("name"), label = field("label");
+    strlcpy(next.name, name.c_str(), sizeof(next.name));
+    strlcpy(next.label, label.c_str(), sizeof(next.label));
+  }
+
+  long radius = current.radiusNm;
+  const String radiusText = field("radius");
+  if(radiusText.length()) radius = radiusText.toInt();
+  next.radiusNm = (int)radius;
+
+  const String key = field("ckey");
+  const bool clearKey = request->hasParam("clearkey", true);
+  const char *keyArg = clearKey ? "" : (key.length() ? key.c_str() : nullptr);
+
+  const char *error = locationRequestSet(next, keyArg);
+  if(error) return webLocationPage(request, current, (String(error) + " Nothing was saved.").c_str());
+
+  String mapUrl = field("mapurl");
+  const int mapSrc = field("mapsrc").length() ? field("mapsrc").toInt() : (int)MAP_SRC_CUSTOM;
+  if(mapSrc == MAP_SRC_OSM) mapUrl = LOCATION_OSM_TILE_URL;
+  const bool mapOn = request->hasParam("mapon", true);
+  const char *mapError = locationRequestMapCfg(mapUrl.c_str(), mapOn, (uint8_t)(field("mapstyle").length() ? constrain(field("mapstyle").toInt(), 0, 2) : (int)MAP_STYLE_LIGHT));
+  if(mapError)
+  {
+    next.hasCartoKey = keyArg ? keyArg[0] != 0 : current.hasCartoKey;
+    return webLocationPage(request, next, (String("Position saved, but the map settings were not: ") + mapError).c_str());
+  }
+
+  next.hasCartoKey = keyArg ? keyArg[0] != 0 : current.hasCartoKey;
+  webApplySvc(request, "svcflights", SVC_FLIGHTS);
+  if(const auto *rs = request->getParam("radarstyle", true))
+  {
+    const int v = rs->value().toInt();
+    uiRadarStyle = (v >= 0 && v <= 4) ? (uint8_t)v : 0;
+    prefsRequestSave(SAVE_SETTINGS);
+  }
+  webLocationPage(request, next, "Saved. Flights and METAR use the airport position.");
 }
 
 static void webSetMemories(AsyncWebServerRequest *request)
@@ -796,8 +1442,9 @@ static void webConfigOptions(String &out, const char *const *labels, int count, 
 const String webConfigPage()
 {
   int layout, region, stereo, brightness, sleepTimer, sleepMode, offTimer;
-  int usbMode, tcpMode, bleMode, rds;
+  int usbMode, tcpMode, bleMode, rds, lang;
   int utcOffset, themeIndex;
+  int accent, textCol, bgCol, menuCol, menuStyle, cpuIdx;
   bool clamp, reverseScroll, halfStep, zoom;
   {
     // A redirect may arrive before the main task has applied the saved values.
@@ -809,6 +1456,13 @@ const String webConfigPage()
     halfStep = configSettings.pending ? configSettings.halfStep : encoderHalfStep;
     rds = configSettings.pending ? configSettings.rds : rdsModeIdx;
     layout = configSettings.pending ? configSettings.layout : uiLayoutIdx;
+    accent = configSettings.pending ? configSettings.accent : uiAccent;
+    textCol = configSettings.pending ? configSettings.textCol : uiTextWhite;
+    bgCol = configSettings.pending ? configSettings.bgCol : uiBgIdx;
+    menuCol = configSettings.pending ? configSettings.menuCol : uiMenuColor;
+    menuStyle = configSettings.pending ? configSettings.menuStyle : uiMenuStyle;
+    cpuIdx = configSettings.pending ? configSettings.cpuIdx : uiCpuIdx;
+    lang = configSettings.pending ? configSettings.lang : uiLang;
     region = configSettings.pending ? configSettings.region : FmRegionIdx;
     stereo = configSettings.pending ? configSettings.stereo : fmStereoIdx;
     brightness = configSettings.pending ? configSettings.brightness : currentBrt;
@@ -836,6 +1490,13 @@ const String webConfigPage()
     {"tcp_options", [&](String &out) { webConfigOptions(out, tcpModeDesc, getTotalTCPModes(), tcpMode); }},
     {"ble_options", [&](String &out) { webConfigOptions(out, bleModeDesc, getTotalBluetoothModes(), bleMode); }},
     {"layout_options", [&](String &out) { webConfigOptions(out, uiLayoutDesc, getTotalUILayouts(), layout); }},
+    {"accent_options", [&](String &out) { webConfigOptions(out, nuAccentName, NU_ACCENTS, accent); }},
+    {"text_options", [&](String &out) { webConfigOptions(out, nuTextName, NU_TEXTS, textCol); }},
+    {"bg_options", [&](String &out) { webConfigOptions(out, nuBgName, NU_BGS, bgCol); }},
+    {"menucol_options", [&](String &out) { static const char *const n[NU_ACCENTS + 1] = {"Same as accent", "Amber", "Green", "Cyan", "Blue", "Magenta", "Red", "White"}; webConfigOptions(out, n, NU_ACCENTS + 1, menuCol); }},
+    {"cpu_options", [&](String &out) { static const char *const n[3] = {"80 MHz (default)", "160 MHz", "240 MHz"}; webConfigOptions(out, n, 3, cpuIdx > 2 ? 0 : cpuIdx); }},
+    {"menustyle_options", [&](String &out) { static const char *const n[3] = {"Original", "Carousel", "Grid"}; webConfigOptions(out, n, 3, menuStyle); }},
+    {"lang_options", [&](String &out) { webConfigOptions(out, uiLangDesc, getTotalLanguages(), lang); }},
     {"rds_options", [&](String &out) {
       for(int i=0 ; i<getTotalRDSModes(); i++)
         pageAppend(out, pageConfigThemeOption, {

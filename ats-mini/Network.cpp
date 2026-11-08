@@ -1,3 +1,4 @@
+#include "I18n.h"
 #include "Common.h"
 #include "Storage.h"
 #include "Utils.h"
@@ -15,7 +16,7 @@
 #define WIFI_TOTAL_TIMEOUT  30000
 #define WIFI_ATTEMPT_TIMEOUT  5000
 #define WIFI_DISCOVERY_TIMEOUT  15000 // Leave time to connect after probing hidden APs
-#define NTP_TIMEOUT  45000 // Allow startup delay and fallback to the third server
+#define NTP_TIMEOUT  15000
 
 #ifndef WIFI_POWER_LEVEL
 #define WIFI_POWER_LEVEL WIFI_POWER_17dBm
@@ -298,7 +299,7 @@ void netInit(uint8_t netMode)
     wifiStartScan();
   }
   else
-    statusShow("Use Access Point " RECEIVER_NAME, "IP : 10.1.1.1 or atsmini.local");
+    statusShow((uiLang == LANG_PT ? "Use o ponto de acesso " RECEIVER_NAME : uiLang == LANG_ES ? "Use el punto de acceso " RECEIVER_NAME : "Use Access Point " RECEIVER_NAME), (uiLang == LANG_PT ? "IP : 10.1.1.1 ou atsmini.local" : uiLang == LANG_ES ? "IP : 10.1.1.1 o atsmini.local" : "IP : 10.1.1.1 or atsmini.local"));
 }
 
 bool ntpIsAvailable()
@@ -412,19 +413,20 @@ static void wifiConnected(uint32_t now)
 {
   WiFi.scanDelete();
   WiFi.setAutoReconnect(true);
+  WiFi.setSleep(false);   // No modem power save: much lower latency for the web pages
   timeSynchronized.store(false);
   esp_sntp_set_time_sync_notification_cb([](struct timeval *) {
     timeSynchronized.store(true);
   });
-  esp_sntp_set_sync_interval(4 * 60 * 60 * 1000);
-  configTime(0, 0, "atsmini.pool.ntp.org");
+  esp_sntp_set_sync_interval(5 * 60 * 1000);
+  configTime(0, 0, "pool.ntp.org");
   attemptStarted = now;
   netState = NetState::Online;
   if(activeNetMode == NET_SYNC)
     statusShow("Synchronizing time...", nullptr, 0);
   else
-    statusShow(("Connected to WiFi network (" + WiFi.SSID() + ")").c_str(),
-               ("IP : " + WiFi.localIP().toString() + " or atsmini.local").c_str());
+    statusShow((String(uiLang == LANG_PT ? "Conectado ao Wi-Fi (" : uiLang == LANG_ES ? "Conectado al Wi-Fi (" : "Connected to WiFi network (") + WiFi.SSID() + ")").c_str(),
+               ("IP : " + WiFi.localIP().toString() + (uiLang == LANG_PT ? " ou atsmini.local" : uiLang == LANG_ES ? " o atsmini.local" : " or atsmini.local")).c_str());
 }
 
 static void wifiConnectionFailed()
@@ -439,7 +441,7 @@ static void wifiConnectionFailed()
     WiFi.scanDelete();
   }
   if(activeNetMode == NET_AP_CONNECT)
-    statusShow("No WiFi connection", "Use Access Point " RECEIVER_NAME " at 10.1.1.1");
+    statusShow("No WiFi connection", (uiLang == LANG_PT ? "Use o ponto de acesso " RECEIVER_NAME " em 10.1.1.1" : uiLang == LANG_ES ? "Use el punto de acceso " RECEIVER_NAME " en 10.1.1.1" : "Use Access Point " RECEIVER_NAME " at 10.1.1.1"));
   else
     statusShow("No WiFi connection");
 }

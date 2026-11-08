@@ -47,11 +47,33 @@
 #define CMD_FM_STEREO  0x3300 // |
 #define CMD_DSP_PATCHES 0x3400 // |
 #define CMD_ABOUT      0x3500 // |
-#define CMD_OFFTIMER   0x3600 //-+
+#define CMD_OFFTIMER   0x3600 // |
+#define CMD_FLIGHTS    0x3700 // |
+#define CMD_WEATHER    0x3800 // |
+#define CMD_FINANCE    0x3900 // |
+#define CMD_NETWORK    0x3A00 // |
+#define CMD_LANG       0x3B00 // |
+#define CMD_NUOPT      0x3C00 // |
+#define CMD_VISUAL     0x3D00 // |
+#define CMD_NEWS       0x3E00 //-+
 
 // UI Layouts
 #define UI_DEFAULT  0
 #define UI_SMETER   1
+#define UI_COCKPIT  2
+#define UI_ANALOG   3
+#define UI_AVIONICS 4
+// New layouts (PV2KSM): use the colours chosen in Settings
+#define UI_NEW_FIRST 5
+#define UI_NANALOG  5
+#define UI_NSMETER  6
+#define UI_VINTAGE  7
+#define UI_CLOCK    8
+#define UI_MEMORIES 9
+#define UI_MINIMAL  10
+#define UI_VFD      11
+#define UI_LCD      12
+#define UI_NEON     13
 
 // Seek modes
 #define SEEK_DEFAULT  0
@@ -116,6 +138,7 @@ VfoState captureVfo();
 
 uint8_t seekMode(bool toggle = false);
 void drawSideBar(uint16_t cmd, int x, int y, int sx);
+bool sideBarFullScreen(uint16_t cmd);
 bool doSideBar(uint16_t cmd, int16_t enc, int16_t enca);
 void doSelectDigit(int16_t enc);
 bool clickHandler(uint16_t cmd, bool shortPress);

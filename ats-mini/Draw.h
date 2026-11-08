@@ -34,7 +34,13 @@
 
 void drawMessage(const char *msg);
 void drawZoomedMenu(const char *text, bool force = false);
-void drawScanGraphs(uint32_t freq); // Hz
+struct NuPal;
+struct CkIn;
+void drawScanForLayout(const CkIn &in, int style);                // Layout-New.cpp: full Scan screen for Cockpit/Analog/Avionics (9 = Cockpit, 10 = Analog, 11 = Avionics)
+#define SCAN_STYLE_COCKPIT 9
+#define SCAN_STYLE_ANALOG  10
+#define SCAN_STYLE_AVIONICS 11
+void drawScanGraphs(uint32_t freq, const NuPal *pal = nullptr); // Hz; pal: themed colours and panel (new layouts)
 void drawScreen();
 
 void drawWiFiIndicator(int x, int y);
@@ -50,8 +56,16 @@ bool drawStatus(int x, int y);
 void drawRadioText(int y, int ymax);
 void drawScale(uint32_t freq); // Hz
 
+void drawLayoutNew();
+bool newTick();   // True when a new-style main screen needs an animation frame
 void drawLayoutDefault();
 void drawLayoutSmeter();
+void drawLayoutCockpit();
+void drawLayoutAnalog();
+bool analogTick();
+void drawLayoutAvionics();
+bool avionicsTick();                // True when the Avionics layout needs a bar animation frame                  // True when the Analog layout needs a needle animation frame
+bool cockpitTick();                 // True when the Cockpit layout needs an animation frame
 
 void drawAbout();
 void drawAboutHelp(uint8_t arrow);
