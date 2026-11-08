@@ -9,7 +9,7 @@ The user manual is available at <https://esp32-si4732.github.io/ats-mini/manual.
 ### Added
 
 - **ID DMR (experimental, hidden by default).** Shows the last stations heard on **your own Pi-Star / WPSD hotspot** on the local network. It works **only with a hotspot** (the dashboard page `/mmdvmhost/lh.php`); there is no internet feed. Nine themes, country flags (51), DMR ID, name and city. Enable it on the web **ID DMR** page ("Show on the radio: Yes").
-- Wind direction arrow on the web Weather page.
+- Wind direction arrow on the web Weather page (community suggestion).
 
 ### Fix
 
@@ -22,6 +22,8 @@ The user manual is available at <https://esp32-si4732.github.io/ats-mini/manual.
 - Translations (EN/PT/ES) for all new texts.
 
 Note on privacy: to show the operator name and city, the radio asks `radioid.net` for each new callsign heard (the callsign is sent to that site). Turn the feature off if you do not want that.
+
+Thanks to Dave (G8PTN), Haranochi and the community member who suggested the wind arrow.
 
 Tested by the author on an OSPI radio. Not hardware-tested on QSPI and LilyGO.
 

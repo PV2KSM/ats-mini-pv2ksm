@@ -32,9 +32,12 @@ Thanks to Dave (G8PTN): turning Bluetooth on with Wi-Fi connected rebooted the r
 Reported by Haranochi: the Clock theme showed UTC. It now shows local time using your UTC offset.
 
 ### 4. Web and memory
-- Wind direction arrow on the web Weather page.
-- Background tasks merged into two shared workers (≈60 KB internal RAM freed).
+- Wind direction arrow on the web Weather page — thanks to the community member who suggested it.
+- Background tasks merged into two shared workers (≈60 KB internal RAM freed) — this came out of Dave's Bluetooth + Wi-Fi report.
 - Full EN/PT/ES translations of the new texts.
+
+## Thanks
+Dave (G8PTN) for the Bluetooth + Wi-Fi report and the layout tests, Haranochi for the UTC clock report, and the community member who suggested the wind arrow. Please keep the reports coming in *Issues*.
 
 ## Files
 - `ats-mini-v2.45-ospi-r30E-ota.bin` — ATS-Mini OSPI
