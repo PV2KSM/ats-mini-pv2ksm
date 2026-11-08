@@ -10,6 +10,7 @@
 #include "Weather.h"
 #include "Finance.h"
 #include "News.h"
+#include "Dmr.h"
 #include "NetStatus.h"
 #include "NewUI.h"
 
@@ -490,6 +491,7 @@ void drawScreen()
   if(currentCmd == CMD_NETWORK) { netStatusDraw(spr); spr.pushSprite(0, 0); return; }
   if(currentCmd == CMD_FINANCE) { financeDraw(spr); spr.pushSprite(0, 0); return; }
   if(currentCmd == CMD_NEWS) { newsDraw(spr); spr.pushSprite(0, 0); return; }
+  if(currentCmd == CMD_DMR) { dmrDraw(spr); return; }
 
   // Clear screen buffer
   spr.fillSprite(TH.bg);

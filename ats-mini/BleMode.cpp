@@ -7,6 +7,11 @@
 #include "BleHidCentral.h"
 #include "BleMode.h"
 #include <host/ble_store.h>
+#include <Preferences.h>
+#include <esp_system.h>
+#include <esp_heap_caps.h>
+#include "Diag.h"
+#include "I18n.h"
 
 static BleUartPeripheral BLESerial;
 static BleHidCentral BLEHid;
@@ -66,6 +71,37 @@ void bleStop()
   bleControllerDisable();
 }
 
+#define BLE_MIN_FREE_K  75     // KB of free internal RAM needed to start Bluetooth (measured: ~93k with Wi-Fi off, ~63k with Wi-Fi on)
+
+// Crash guard: a flag is set while Bluetooth starts. If the radio resets before it is cleared (or after a panic / watchdog
+// reset with Bluetooth on), the next boot comes up with Bluetooth off instead of looping, so Wi-Fi + Bluetooth can never lock the radio.
+static void bleGuard(uint8_t v)
+{
+  Preferences p; if(!p.begin("bleguard", false)) return;
+  if(p.getUChar("g", 0) != v) p.putUChar("g", v);
+  p.end();
+}
+static uint8_t bleGuardGet()
+{
+  Preferences p; if(!p.begin("bleguard", true)) return 0;
+  const uint8_t v = p.getUChar("g", 0); p.end(); return v;
+}
+
+void bleBootInit()
+{
+  const esp_reset_reason_t rr = esp_reset_reason();
+  const bool crashed = rr == ESP_RST_PANIC || rr == ESP_RST_INT_WDT || rr == ESP_RST_TASK_WDT || rr == ESP_RST_WDT;
+  if(bleModeIdx != BLE_OFF && (bleGuardGet() == 1 || crashed))
+  {
+    bleGuard(0);
+    bleModeIdx = BLE_OFF;
+    prefsRequestSave(SAVE_SETTINGS, true);
+    return;
+  }
+  bleGuard(0);
+  bleInit(bleModeIdx);
+}
+
 void bleInit(uint8_t bleMode)
 {
   bleStop();
@@ -86,7 +122,24 @@ void bleInit(uint8_t bleMode)
     return;
   }
 
-  if (bleMode != BLE_OFF && !bleControllerEnable()) return;
+  if (bleMode != BLE_OFF)
+  {
+    // Bluetooth needs a good chunk of internal RAM; with Wi-Fi and the services running it can run out and the chip resets.
+    // Refuse to start instead, and say how much is free.
+    diagStage(DG_BLE_INIT, bleMode);
+    const size_t freeK = heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024, blockK = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL) / 1024;
+    // Once the stack is initialised its memory is already taken (it is never fully released), so the check only applies to the first start
+    if(!BLEDevice::getInitialized() && freeK < BLE_MIN_FREE_K)
+    {
+      char l2[40]; snprintf(l2, sizeof(l2), "RAM %uk blk %uk (need %uk)", (unsigned)freeK, (unsigned)blockK, (unsigned)BLE_MIN_FREE_K);
+      statusShow("Bluetooth off: turn Wi-Fi off", l2, 5000);
+      bleModeIdx = BLE_OFF; prefsRequestSave(SAVE_SETTINGS, true);
+      return;
+    }
+    bleGuard(1);
+    diagStage(DG_BLE_BEGIN, bleMode);
+  }
+  if (bleMode != BLE_OFF && !bleControllerEnable()) { bleGuard(0); return; }
 
   switch(bleMode)
   {
@@ -97,6 +150,7 @@ void bleInit(uint8_t bleMode)
       BLEHid.begin(RECEIVER_NAME);
       break;
   }
+  bleGuard(0);
 }
 
 static InputEvent bleReadInput(uint8_t& byte)

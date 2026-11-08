@@ -13,6 +13,7 @@
 #include "Weather.h"
 #include "Finance.h"
 #include "News.h"
+#include "Dmr.h"
 #include "NetStatus.h"
 #include "Memories.h"
 #include "Patches.h"
@@ -135,9 +136,10 @@ Band *getCurrentBand() { return(&bands[bandIdx]); }
 #define MENU_NEWS        14
 #define MENU_WEATHER     15
 #define MENU_FINANCE     16
-#define MENU_NETWORK     17
-#define MENU_VISUAL      18
-#define MENU_SETTINGS    19
+#define MENU_DMR         17
+#define MENU_NETWORK     18
+#define MENU_VISUAL      19
+#define MENU_SETTINGS    20
 
 int8_t menuIdx = MENU_VOLUME;
 uint8_t uiSvcMask = 0x0F;
@@ -151,6 +153,7 @@ static bool menuVisible(int i)
     case MENU_NEWS:    return (uiSvcMask & SVC_NEWS) != 0;
     case MENU_WEATHER: return (uiSvcMask & SVC_WEATHER) != 0;
     case MENU_FINANCE: return (uiSvcMask & SVC_FINANCE) != 0;
+    case MENU_DMR:     return (uiSvcMask & SVC_DMR) != 0;
     default:           return true;
   }
 }
@@ -174,6 +177,7 @@ static const char *menu[] =
   "News",
   "Weather",
   "Finance",
+  "ID DMR",
   "Network",
   "Visual",
   "Settings",
@@ -216,7 +220,8 @@ static const char *menu[] =
 #define VIS_MENUCOL       5
 #define VIS_MENUSTYLE     6
 #define VIS_FLIGHTS       7
-static const char *visualItems[] = { "UI Layout", "Theme", "Accent", "Text color", "Background", "Menu color", "Menu style", "Flights radar" };
+#define VIS_DMR           8
+static const char *visualItems[] = { "UI Layout", "Theme", "Accent", "Text color", "Background", "Menu color", "Menu style", "Flights radar", "DMR theme" };
 int8_t visualIdx = VIS_UI;
 
 
@@ -834,6 +839,7 @@ static uint8_t *nuOptValue(int *count, const char *const **names, const char **t
     case 2: *count = NU_BGS; *names = nuBgName; *title = "Background"; return &uiBgIdx;
     case 3: *count = 8; *names = nuMenuColNames; *title = "Menu color"; return &uiMenuColor;
     case 4: *count = 3; *names = nuMenuStyleNames; *title = "Menu style"; return &uiMenuStyle;
+    case 8: { static const char *names8[DMR_THEMES]; for(int i = 0 ; i < DMR_THEMES ; i++) names8[i] = dmrThemeName(i); *count = DMR_THEMES; *names = names8; *title = "DMR theme"; return &uiDmrTheme; }
     case 7: { static const char *const rs[5] = {"Map", "A32X", "ATCAS", "BTCAS", "B7X"}; *count = 5; *names = rs; *title = "Flights radar"; return &uiRadarStyle; }
     case 6: { static const char *const tu[2] = {"Celsius", "Fahrenheit"}; *count = 2; *names = tu; *title = "Temp unit"; return &uiTempUnit; }
     default: { static const char *const cpu[3] = {"80 MHz", "160 MHz", "240 MHz"}; *count = 3; *names = cpu; *title = "CPU speed"; return &uiCpuIdx; }
@@ -1331,6 +1337,7 @@ static void clickMenu(int cmd, bool shortPress)
     case MENU_NEWS:     newsOpen(); currentCmd = CMD_NEWS; break;
     case MENU_WEATHER:  weatherOpen(); currentCmd = CMD_WEATHER; break;
     case MENU_FINANCE:  financeOpen(); currentCmd = CMD_FINANCE; break;
+    case MENU_DMR:      dmrOpen(); currentCmd = CMD_DMR; break;
     case MENU_NETWORK:  netStatusOpen(); currentCmd = CMD_NETWORK; break;
     case MENU_SQUELCH:  currentCmd = CMD_SQUELCH;   break;
     case MENU_VOLUME:   currentCmd = CMD_VOLUME;    break;
@@ -1381,6 +1388,7 @@ static void clickVisual(int item, bool shortPress)
     case VIS_MENUCOL:   nuOpt = 3; currentCmd = CMD_NUOPT; break;
     case VIS_MENUSTYLE: nuOpt = 4; currentCmd = CMD_NUOPT; break;
     case VIS_FLIGHTS:   nuOpt = 7; currentCmd = CMD_NUOPT; break;
+    case VIS_DMR:       nuOpt = 8; currentCmd = CMD_NUOPT; break;
   }
 }
 
@@ -1485,6 +1493,7 @@ bool doSideBar(uint16_t cmd, int16_t enc, int16_t enca)
     case CMD_ABOUT:      doAbout(enc);break;
     case CMD_FLIGHTS:    flightsScroll(scrollDirection * enc);break;
     case CMD_NEWS:       newsScroll(scrollDirection * enc);break;
+    case CMD_DMR:        dmrScroll(scrollDirection * enc);break;
     case CMD_WEATHER:    weatherScroll(scrollDirection * enc);break;
     case CMD_FINANCE:    break;
     case CMD_NETWORK:    netStatusScroll(scrollDirection * enc);break;
@@ -1994,6 +2003,7 @@ static void drawNuOpt(int x, int y, int sx)
   int count; const char *const *names; const char *title;
   uint8_t *v = nuOptValue(&count, &names, &title);
   if(nuOpt == 7) drawRadarPreview(*v < 5 ? *v : 0);
+  else if(nuOpt == 8) dmrDrawPreview(spr, *v < DMR_THEMES ? *v : 0);
   drawCommon(title, x, y, sx, true);
   for(int i=-2 ; i<3 ; i++)
   {

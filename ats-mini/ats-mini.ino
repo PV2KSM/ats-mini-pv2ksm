@@ -16,6 +16,7 @@
 #include "EIBI.h"
 #include "Remote.h"
 #include "BleMode.h"
+#include "Workers.h"
 #include "TcpMode.h"
 #include "Splash.h"
 #include "Web.h"
@@ -23,6 +24,7 @@
 #include "Weather.h"
 #include "Finance.h"
 #include "News.h"
+#include "Dmr.h"
 #include "NetStatus.h"
 #include "Radar.h"
 #include "Backup.h"
@@ -309,10 +311,13 @@ void setup()
   weatherBegin();
   financeBegin();
   newsBegin();
+  dmrBegin();
+  dmrNetBegin();
   radarBegin();
+  workersBegin();     // The service workers start after every module is initialised
 
   // Start Bluetooth LE, if necessary
-  bleInit(bleModeIdx);
+  bleBootInit();
 }
 
 
@@ -840,7 +845,7 @@ void loop()
   // Disable commands control
   if((currentTime - elapsedCommand) > ELAPSED_COMMAND)
   {
-    if(currentCmd != CMD_NONE && currentCmd != CMD_SEEK && currentCmd != CMD_SCAN && currentCmd != CMD_MEMORY && currentCmd != CMD_FLIGHTS && currentCmd != CMD_WEATHER && currentCmd != CMD_FINANCE && currentCmd != CMD_NEWS && currentCmd != CMD_NETWORK)
+    if(currentCmd != CMD_NONE && currentCmd != CMD_SEEK && currentCmd != CMD_SCAN && currentCmd != CMD_MEMORY && currentCmd != CMD_FLIGHTS && currentCmd != CMD_WEATHER && currentCmd != CMD_FINANCE && currentCmd != CMD_NEWS && currentCmd != CMD_DMR && currentCmd != CMD_NETWORK)
     {
       currentCmd = CMD_NONE;
       needRedraw = true;
@@ -888,6 +893,7 @@ void loop()
   needRedraw |= weatherTick();
   needRedraw |= financeTick();
   needRedraw |= newsTick();
+  needRedraw |= dmrTick();
   needRedraw |= netStatusTick();
   backupTick();
   needRedraw |= newTick();

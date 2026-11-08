@@ -25,6 +25,8 @@
 #include "PageFinance.h"
 #include "PageServices.h"
 #include "PageNews.h"
+#include "PageDmr.h"
+#include "Dmr.h"
 #include "News.h"
 #include "PageBackup.h"
 #include "Finance.h"
@@ -109,6 +111,7 @@ static void webApiTune(AsyncWebServerRequest *request);
 static void webLocationPage(AsyncWebServerRequest *request, const LocationInfo &shown, const char *message);
 static void webSetLocation(AsyncWebServerRequest *request);
 static void webServicesPage(AsyncWebServerRequest *request, const char *message);
+static void webDmrPage(AsyncWebServerRequest *request, const char *message);
 static void webNewsPage(AsyncWebServerRequest *request, const char *message);
 static void webApplySvc(AsyncWebServerRequest *request, const char *field, uint8_t bit);
 static bool webApplyRadio();
@@ -360,6 +363,25 @@ void webInit()
     city.trim();
     const char *cityError = wxPlaceRequestCity(city.c_str());
     webServicesPage(request, cityError ? (String(cityError) + " The weather city was not saved.").c_str() : "Saved.");
+  });
+
+  // DMR: show switch, source, network, talkgroup, look, hotspot
+  server.on("/dmr", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webDmrPage(request, "");
+  });
+  server.on("/dmr", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if(!webIsAuthenticated(request)) return request->requestAuthentication();
+    webApplySvc(request, "svcdmr", SVC_DMR);
+    DmrCfg c; dmrGetCfg(&c);
+    auto num = [&](const char *f, long def) { const auto *p = request->getParam(f, true); return p ? p->value().toInt() : def; };
+    c.rows = (uint8_t)num("dmrrows", c.rows);
+    const long th = num("dmrtheme", uiDmrTheme); uiDmrTheme = (th >= 0 && th < DMR_THEMES) ? (uint8_t)th : 0;
+    const auto *h = request->getParam("dmrhost", true);
+    if(h) { String v = h->value(); v.trim(); strlcpy(c.host, v.c_str(), sizeof(c.host)); }
+    dmrSetCfg(c);
+    prefsRequestSave(SAVE_SETTINGS);
+    webDmrPage(request, "Saved.");
   });
 
   // Finance lives inside the News page: the old address goes there
@@ -1184,6 +1206,23 @@ static void webServicesPage(AsyncWebServerRequest *request, const char *message)
     {"wxcity", wxCityShown}, {"wxfound", wxFoundShown}, {"tempc", tc}, {"tempf", tf}
   }, {
     {"navigation", [](String &out) { webNavigation(out, "/services"); }}
+  }));
+}
+
+static void webDmrPage(AsyncWebServerRequest *request, const char *message)
+{
+  DmrCfg c; dmrGetCfg(&c);
+  const String msg(message), host(c.host), tg(String((unsigned long)c.tg));
+  const String on(uiSvcMask & SVC_DMR ? "SELECTED" : ""), off(uiSvcMask & SVC_DMR ? "" : "SELECTED");
+  String src[3], net[4], th[DMR_THEMES], rows[9];
+  src[c.src < 3 ? c.src : 0] = "SELECTED"; net[c.net & 3] = "SELECTED"; th[uiDmrTheme < DMR_THEMES ? uiDmrTheme : 0] = "SELECTED"; rows[c.rows <= 8 ? c.rows : 6] = "SELECTED";
+  request->send(200, "text/html", webPage(pageDmr, pageDmrTitle, {
+    {"title", pageDmrTitle}, {"message", msg}, {"on", on}, {"off", off}, {"tg", tg}, {"host", host},
+    {"src0", src[0]}, {"src1", src[1]}, {"src2", src[2]}, {"net0", net[0]}, {"net1", net[1]}, {"net2", net[2]}, {"net3", net[3]},
+    {"th0", th[0]}, {"th1", th[1]}, {"th2", th[2]}, {"th3", th[3]}, {"th4", th[4]}, {"th5", th[5]}, {"th6", th[6]}, {"th7", th[7]}, {"th8", th[8]},
+    {"rows4", rows[4]}, {"rows5", rows[5]}, {"rows6", rows[6]}, {"rows7", rows[7]}, {"rows8", rows[8]}
+  }, {
+    {"navigation", [](String &out) { webNavigation(out, "/dmr"); }}
   }));
 }
 

@@ -5,6 +5,7 @@
 //   Bitcoin:      Coinbase public spot prices (BTC-USD and BTC-<local>), no key.
 //
 #include "Finance.h"
+#include "Dmr.h"
 #include "NetFetch.h"
 #include "Utils.h"
 #include "Menu.h"
@@ -223,25 +224,22 @@ static void fetchFinance()
 
 static bool financeWanted() { return currentCmd == CMD_FINANCE; }
 
-static void financeTask(void *)
+// One pass of the worker loop (see Workers.cpp)
+void financeWork()
 {
-  uint32_t last = 0;
-  for(;;)
+  static uint32_t last = 0;
+  if(financeWanted())
   {
-    if(financeWanted())
+    const uint32_t period = valid ? FIN_REFRESH_MS : 60000UL;
+    bool due = wakeNow || !last || (uint32_t)(millis() - last) >= period;
+    if(due)
     {
-      const uint32_t period = valid ? FIN_REFRESH_MS : 60000UL;
-      bool due = wakeNow || !last || (uint32_t)(millis() - last) >= period;
-      if(due)
-      {
-        wakeNow = false;
-        fetchFinance();
-        last = millis() | 1;
-      }
+      wakeNow = false;
+      fetchFinance();
+      last = millis() | 1;
     }
-    else last = 0;
-    vTaskDelay(pdMS_TO_TICKS(250));
   }
+  else last = 0;
 }
 
 void financeBegin()
@@ -257,7 +255,6 @@ void financeBegin()
     if(p.getBytes("slots", sv, 3) == 3 && sv[0] < FIN_ITEMS && sv[1] < FIN_ITEMS && sv[2] < FIN_ITEMS) memcpy(slots, sv, 3);
     p.end();
   }
-  xTaskCreatePinnedToCore(financeTask, "finance", FIN_TASK_STACK, nullptr, 1, nullptr, 1);
 }
 
 void financeOpen()

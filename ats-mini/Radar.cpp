@@ -279,36 +279,31 @@ static void buildRadar()
   lastTryMs = millis();
 }
 
-static void radarTask(void *)
+void radarWork()
 {
-  for(;;)
+  if(weatherIsActive() && weatherPage() == 4)
   {
-    if(weatherIsActive() && weatherPage() == 4)
+    bool due = wakeFlag;
+    if(!due && wantBuild) due = true;
+    if(!due && !shownValid) due = true;
+    if(!due && lastOkMs && (uint32_t)(millis() - lastOkMs) >= RADAR_REFRESH_MS) due = true;
+    if(due && lastFailed && lastTryMs && (uint32_t)(millis() - lastTryMs) < RADAR_RETRY_MS && !wakeFlag) due = false;
+    if(due)
     {
-      bool due = wakeFlag;
-      if(!due && wantBuild) due = true;
-      if(!due && !shownValid) due = true;
-      if(!due && lastOkMs && (uint32_t)(millis() - lastOkMs) >= RADAR_REFRESH_MS) due = true;
-      if(due && lastFailed && lastTryMs && (uint32_t)(millis() - lastTryMs) < RADAR_RETRY_MS && !wakeFlag) due = false;
-      if(due)
-      {
-        wakeFlag = false;
-        wantBuild = false;
-        // Reopened shortly after a good build with nothing changed: keep what is there
-        const bool fresh = shownValid && shownGen == gen && shownZoom == zoomSel && lastOkMs && (uint32_t)(millis() - lastOkMs) < RADAR_REFRESH_MS && !lastFailed;
-        if(!fresh) buildRadar();
-      }
+      wakeFlag = false;
+      wantBuild = false;
+      // Reopened shortly after a good build with nothing changed: keep what is there
+      const bool fresh = shownValid && shownGen == gen && shownZoom == zoomSel && lastOkMs && (uint32_t)(millis() - lastOkMs) < RADAR_REFRESH_MS && !lastFailed;
+      if(!fresh) buildRadar();
     }
-    else wakeFlag = false;
-    vTaskDelay(pdMS_TO_TICKS(400));
   }
+  else wakeFlag = false;
 }
 
 void radarBegin()
 {
   if(!mtx) mtx = xSemaphoreCreateMutex();
   if(!mtx) return;
-  xTaskCreatePinnedToCore(radarTask, "radar", RADAR_TASK_STACK, nullptr, 1, nullptr, 1);
 }
 
 // ---- Drawing ---------------------------------------------------------------

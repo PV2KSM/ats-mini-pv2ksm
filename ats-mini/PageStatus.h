@@ -142,6 +142,13 @@ static const char pageStatus[] PROGMEM = R"HTML(<STYLE>
     return s + '</svg>';
   }
   function desc(c) { return window.WXDESC(c); }
+  // Arrow points where the wind is going (the API gives the direction it comes from); label shows the compass point
+  function windArrow(deg) {
+    if (deg === null || deg === undefined || isNaN(deg)) return '';
+    var pts = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], p = pts[Math.round(deg / 45) % 8];
+    return ' <SVG CLASS="warr" VIEWBOX="-10 -10 20 20" WIDTH="14" HEIGHT="14" STYLE="vertical-align:-2px;transform:rotate(' + Math.round(deg + 180) + 'deg)"><TITLE>' + p + ' ' + Math.round(deg) + '&deg;</TITLE>' +
+      '<PATH D="M0,-8 L5,5 L0,2 L-5,5 Z" FILL="currentColor"/></SVG> ' + p;
+  }
   var hero = $('hero'), LAT = hero.getAttribute('data-lat'), LON = hero.getAttribute('data-lon');
   var NAME = hero.getAttribute('data-name'), LABEL = hero.getAttribute('data-label'), ICAO = hero.getAttribute('data-icao');
   var URLW = 'https://api.open-meteo.com/v1/forecast?latitude=' + encodeURIComponent(LAT) + '&longitude=' + encodeURIComponent(LON) +
@@ -157,7 +164,7 @@ static const char pageStatus[] PROGMEM = R"HTML(<STYLE>
       '<DIV><DIV CLASS="temp">' + Math.round(c.temperature_2m) + '&deg;</DIV><DIV CLASS="desc">' + desc(c.weather_code) + '</DIV></DIV></DIV>';
     h += '<DIV CLASS="meta">' + TR('Feels like') + ' ' + Math.round(c.apparent_temperature) + '&deg; &middot; ' + TR('Max') + ' ' + Math.round(d.temperature_2m_max[0]) + '&deg; &middot; ' + TR('Min') + ' ' + Math.round(d.temperature_2m_min[0]) + '&deg;</DIV>';
     h += '<DIV CLASS="wchips"><SPAN CLASS="wchip">' + TR('Humidity') + ' ' + Math.round(c.relative_humidity_2m) + '%</SPAN>' +
-      '<SPAN CLASS="wchip">' + TR('Wind') + ' ' + Math.round(c.wind_speed_10m) + ' km/h</SPAN>' +
+      '<SPAN CLASS="wchip">' + TR('Wind') + ' ' + Math.round(c.wind_speed_10m) + ' km/h' + windArrow(c.wind_direction_10m) + '</SPAN>' +
       '<SPAN CLASS="wchip">' + TR('Rain') + ' ' + Math.round(d.precipitation_probability_max[0] || 0) + '%</SPAN>' +
       '<SPAN CLASS="wchip">' + Math.round(c.pressure_msl) + ' hPa</SPAN></DIV><DIV CLASS="days">';
     for (var i = 1; i <= 5 && i < d.time.length; i++) {

@@ -658,6 +658,8 @@ namespace nu
     if(!strcmp(n, "Flights radar")) return 13;
     if(!strcmp(n, "Visual")) return 24;   // palette icon (same as Theme)
     if(!strcmp(n, "CPU speed")) return 32;
+    if(!strcmp(n, "DMR") || !strcmp(n, "ID DMR")) return 47;          // handheld radio with waves
+    if(!strcmp(n, "DMR theme")) return 48;    // call sign display with colour dots
     if(!strcmp(n, "News")) return 46;   // newspaper
     for(unsigned i = 0 ; i < sizeof(names) / sizeof(names[0]) ; i++) if(!strcmp(n, names[i])) return (int)i;
     return 17;   // gear
@@ -750,6 +752,28 @@ namespace nu
         P(-.4f, .12f, &ex, &ey); P(-.4f, .3f, &fx, &fy); ln(g, ex, ey, fx, fy, s * 0.08f, c);
         // cockpit windscreen
         P(0, -.62f, &ex, &ey); P(0, -.5f, &fx, &fy); ln(g, ex, ey, fx, fy, s * 0.05f, bgc);
+        break;
+      }
+      case 47: // DMR: handheld radio with sound waves
+      {
+        const int bx = (int)(cx - s * 0.95f), by = (int)(cy - s * 0.45f), bw = (int)(s * 0.85f), bh = (int)(s * 1.4f);
+        rrect(g, bx, by, bw, bh, 3, c, th); rrect(g, bx + 1, by + 1, bw - 2, bh - 2, 2, c, th);
+        ln(g, cx - s * 0.7f, cy - s * 0.45f, cx - s * 0.7f, cy - s * 0.95f, r, c);                       // antenna
+        g.fillRect((int)(cx - s * 0.8f), (int)(cy - s * 0.25f), (int)(s * 0.55f), (int)(s * 0.35f), c);   // screen
+        for(int i = 0 ; i < 3 ; i++) ln(g, cx - s * 0.8f, cy + s * (0.3f + i * 0.2f), cx - s * 0.25f, cy + s * (0.3f + i * 0.2f), r * 0.7f, c);   // speaker
+        g.fillArc((int)cx, (int)(cy - s * 0.1f), (int)(s * 0.45f), (int)(s * 0.45f + th + 1), 320.f, 400.f, c);     // waves
+        g.fillArc((int)cx, (int)(cy - s * 0.1f), (int)(s * 0.85f), (int)(s * 0.85f + th + 1), 320.f, 400.f, c);
+        break;
+      }
+      case 48: // DMR theme: call sign display and colour dots
+      {
+        const int bx = (int)(cx - s), by = (int)(cy - s * 0.85f), bw = (int)(2 * s), bh = (int)(1.25f * s);
+        rrect(g, bx, by, bw, bh, 3, c, th); rrect(g, bx + 1, by + 1, bw - 2, bh - 2, 2, c, th);
+        g.fillRect((int)(cx - s * 0.65f), (int)(cy - s * 0.6f), (int)(s * 1.3f), (int)(s * 0.4f), c);       // call sign
+        ln(g, cx - s * 0.65f, cy - s * 0.02f, cx + s * 0.25f, cy - s * 0.02f, r * 0.8f, c);                // name
+        g.fillCircle((int)(cx - s * 0.6f), (int)(cy + s * 0.72f), (int)(s * 0.24f + 0.5f), c);
+        g.fillCircle((int)cx, (int)(cy + s * 0.72f), (int)(s * 0.24f + 0.5f), ckMix(bgc, c, 160));
+        g.fillCircle((int)(cx + s * 0.6f), (int)(cy + s * 0.72f), (int)(s * 0.24f + 0.5f), ckMix(bgc, c, 100));
         break;
       }
       case 46: // News: newspaper (headline block, text lines)
@@ -1000,7 +1024,7 @@ namespace nu
       {"UI Layout", "Layout da tela", "Diseno de pantalla", "Layout", "Diseno"}, {"Theme", "Tema", "Tema", 0, 0}, {"Accent", "Destaque", "Acento", 0, 0},
       {"Text color", "Cor do texto", "Color de texto", "Texto", "Texto"}, {"Background", "Fundo", "Fondo", 0, 0},
       {"Menu color", "Cor do menu", "Color del menu", "Cor menu", "Col. menu"}, {"Menu style", "Estilo do menu", "Estilo del menu", "Estilo", "Estilo"},
-      {"Flights radar", "Radar de voo", "Radar de vuelos", "Radar", "Radar"},
+      {"Flights radar", "Radar de voo", "Radar de vuelos", "Radar", "Radar"}, {"DMR theme", "Tema DMR", "Tema DMR", 0, 0},
     };
     for(unsigned i = 0 ; i < sizeof(T) / sizeof(T[0]) ; i++)
       if(!strcmp(en, T[i].en))

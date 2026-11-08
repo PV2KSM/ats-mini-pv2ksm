@@ -861,27 +861,23 @@ int newsTestResult(char *msg, size_t msgSize, char *head, size_t headSize, char 
 
 static bool newsWanted() { return currentCmd == CMD_NEWS; }
 
-static void newsTask(void *)
+void newsWork()
 {
-  uint32_t last = 0;
-  for(;;)
+  static uint32_t last = 0;
+  if(testReq) { testReq = false; doTest(); }
+  if(newsWanted())
   {
-    if(testReq) { testReq = false; doTest(); }
-    if(newsWanted())
+    uint32_t period;
+    lock(); period = (nItems ? (uint32_t)cfg.refreshMin * 60000UL : 60000UL); unlock();
+    const bool due = wakeNow || !last || (uint32_t)(millis() - last) >= period;
+    if(due)
     {
-      uint32_t period;
-      lock(); period = (nItems ? (uint32_t)cfg.refreshMin * 60000UL : 60000UL); unlock();
-      const bool due = wakeNow || !last || (uint32_t)(millis() - last) >= period;
-      if(due)
-      {
-        wakeNow = false;
-        fetchNews();
-        last = millis() | 1;
-      }
+      wakeNow = false;
+      fetchNews();
+      last = millis() | 1;
     }
-    else last = 0;
-    vTaskDelay(pdMS_TO_TICKS(250));
   }
+  else last = 0;
 }
 
 void newsBegin()
@@ -894,7 +890,6 @@ void newsBegin()
   items = (NewsItem *)big(sizeof(NewsItem) * NEWS_MAX);
   work = (NewsItem *)big(sizeof(NewsItem) * NEWS_MAX);
   gSrc = (Source *)big(sizeof(Source) * NEWS_MAX_SRC);
-  xTaskCreatePinnedToCore(newsTask, "news", NEWS_TASK_STACK, nullptr, 1, nullptr, 1);
 }
 
 void newsOpen()

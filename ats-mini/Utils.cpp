@@ -380,6 +380,19 @@ bool clockGetHM(uint8_t *hours, uint8_t *minutes)
   return(true);
 }
 
+bool clockGetLocalHM(uint8_t *hours, uint8_t *minutes)
+{
+  if(!clockHasBeenSet) return(false);
+
+  time_t now = time(NULL) + getCurrentUTCOffset() * 15 * 60;
+  struct tm tm;
+  gmtime_r(&now, &tm);
+
+  if(hours) *hours = tm.tm_hour;
+  if(minutes) *minutes = tm.tm_min;
+  return(true);
+}
+
 bool clockGetDate(uint16_t *year, uint8_t *month, uint8_t *day, uint8_t *weekday)
 {
   if(!clockHasBeenSet) return(false);

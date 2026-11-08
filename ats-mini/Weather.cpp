@@ -543,25 +543,21 @@ bool weatherGetSnapshot(WxData *out, char *st, size_t stSize)
   return ok;
 }
 
-static void weatherTask(void *)
+void weatherWork()
 {
-  uint32_t last = 0;
-  for(;;)
+  static uint32_t last = 0;
+  if(weatherWanted())
   {
-    if(weatherWanted())
+    // Refresh every WX_REFRESH_MS; after a failure (no data yet) retry every minute
+    const uint32_t period = data.valid ? WX_REFRESH_MS : 60000UL;
+    bool due = wakeNow || !last || (uint32_t)(millis() - last) >= period;
+    if(due)
     {
-      // Refresh every WX_REFRESH_MS; after a failure (no data yet) retry every minute
-      const uint32_t period = data.valid ? WX_REFRESH_MS : 60000UL;
-      bool due = wakeNow || !last || (uint32_t)(millis() - last) >= period;
-      if(due)
-      {
-        wakeNow = false;
-        fetchWeather();
-        if(currentCmd == CMD_WEATHER) fetchMetar();
-        last = millis() | 1;
-      }
+      wakeNow = false;
+      fetchWeather();
+      if(currentCmd == CMD_WEATHER) fetchMetar();
+      last = millis() | 1;
     }
-    vTaskDelay(pdMS_TO_TICKS(250));
   }
 }
 
@@ -570,7 +566,6 @@ void weatherBegin()
   if(!mtx) mtx = xSemaphoreCreateMutex();
   if(!mtx) return;
   memset(&data, 0, sizeof(data));
-  xTaskCreatePinnedToCore(weatherTask, "weather", WX_TASK_STACK, nullptr, 1, nullptr, 1);
 }
 
 void weatherLocationChanged()

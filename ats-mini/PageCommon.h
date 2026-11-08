@@ -79,14 +79,14 @@ static const char pageEnd[] PROGMEM = R"HTML(
 struct WebNavPage { const char *name; const char *path; };
 static const WebNavPage navRadio[]    = {{"Status", "/"}, {"Control", "/control"}};
 static const WebNavPage navMemory[]   = {{"Memory", "/memory"}};
-static const WebNavPage navServices[] = {{"Weather", "/services"}, {"Flights", "/location"}, {"News", "/news"}};
+static const WebNavPage navServices[] = {{"Weather", "/services"}, {"Flights", "/location"}, {"News", "/news"}, {"ID DMR", "/dmr"}};
 static const WebNavPage navSettings[] = {{"Config", "/config"}, {"Wi-Fi", "/wifi"}};
 static const WebNavPage navSystem[]   = {{"Backup", "/backup"}, {"Update", "/update"}, {"Patches", "/patches"}};
 static const struct { const char *name; const WebNavPage *pages; int count; } navGroups[] =
 {
   {"Radio",    navRadio,    2},
   {"Memory",   navMemory,   1},
-  {"Services", navServices, 3},
+  {"Services", navServices, 4},
   {"Settings", navSettings, 2},
   {"System",   navSystem,   3},
 };

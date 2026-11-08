@@ -5,6 +5,7 @@
 #include "BleUartPeripheral.h"
 
 void bleInit(uint8_t bleMode);
+void bleBootInit();   // Start-up: turns Bluetooth off if the last boot crashed
 void bleStop();
 int8_t getBleStatus();
 bool bleLoop(uint8_t bleMode);

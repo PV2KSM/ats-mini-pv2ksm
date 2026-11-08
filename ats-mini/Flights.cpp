@@ -263,17 +263,13 @@ static void fetchFlightsLocked()
   FLOG("[FLIGHT] Aeronaves: %d\n", n);
 }
 
-static void flightsTask(void *)
+void flightsWork()
 {
-  uint32_t last = 0;
-  for(;;)
+  static uint32_t last = 0;
+  if(flightsIsActive())
   {
-    if(flightsIsActive())
-    {
-      bool due = wakeNow || (uint32_t)(millis() - last) >= FLIGHTS_REFRESH_MS;
-      if(due) { wakeNow = false; fetchFlights(); last = millis(); }
-    }
-    vTaskDelay(pdMS_TO_TICKS(250));
+    bool due = wakeNow || (uint32_t)(millis() - last) >= FLIGHTS_REFRESH_MS;
+    if(due) { wakeNow = false; fetchFlights(); last = millis(); }
   }
 }
 
@@ -281,7 +277,6 @@ void flightsBegin()
 {
   if(!mtx) mtx = xSemaphoreCreateMutex();
   if(!mtx) return;
-  xTaskCreatePinnedToCore(flightsTask, "flights", FLIGHTS_TASK_STACK, nullptr, 1, nullptr, 1);
 }
 
 // The observer position changed (set from the web page): refresh on the next opportunity

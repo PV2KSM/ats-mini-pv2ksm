@@ -81,7 +81,7 @@ void drawLayoutNew()
   in.t = millis() / 1000.0f;
 
   uint8_t hh, mm;
-  in.haveTime = clockGetHM(&hh, &mm);
+  in.haveTime = clockGetLocalHM(&hh, &mm);
   in.hh = hh; in.mm = mm;
   uint16_t yr; uint8_t mo, dy, wd;
   if(clockGetDate(&yr, &mo, &dy, &wd)) { n.month = mo; n.day = dy; n.wday = wd % 7; } else n.month = 0;

@@ -4,6 +4,27 @@ The user manual is available at <https://esp32-si4732.github.io/ats-mini/manual.
 
 <!-- towncrier release notes start -->
 
+## PV2KSM r30E (2026-11-08) - ID DMR (experimental, hotspot only), Bluetooth + Wi-Fi fix, memory
+
+### Added
+
+- **ID DMR (experimental, hidden by default).** Shows the last stations heard on **your own Pi-Star / WPSD hotspot** on the local network. It works **only with a hotspot** (the dashboard page `/mmdvmhost/lh.php`); there is no internet feed. Nine themes, country flags (51), DMR ID, name and city. Enable it on the web **ID DMR** page ("Show on the radio: Yes").
+- Wind direction arrow on the web Weather page.
+
+### Fix
+
+- Clock-based themes (and the DMR screen) showed UTC instead of local time; they now use the configured UTC offset (reported by Haranochi).
+- Bluetooth + Wi-Fi together no longer reboots the radio (reported by Dave, G8PTN): RAM check before starting Bluetooth, crash guard that turns Bluetooth off after a crash, and TLS memory moved to PSRAM so HTTPS keeps working after Bluetooth was used.
+
+### Changed
+
+- Internal RAM: the web/service background tasks were merged into two shared workers (about 60 KB of internal RAM freed).
+- Translations (EN/PT/ES) for all new texts.
+
+Note on privacy: to show the operator name and city, the radio asks `radioid.net` for each new callsign heard (the callsign is sent to that site). Turn the feature off if you do not want that.
+
+Tested by the author on an OSPI radio. Not hardware-tested on QSPI and LilyGO.
+
 ## PV2KSM r30D (2026-11-07) - Services tabs, weather by city, flight radar styles, realistic sky
 
 ### Added

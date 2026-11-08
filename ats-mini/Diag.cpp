@@ -34,6 +34,8 @@ static const char *stageName(uint8_t s)
     case DG_FL_DRAW_PANEL:  return "voos: desenho dos paineis";
     case DG_WX_FETCH:       return "clima: baixando";
     case DG_WX_PARSE:       return "clima: lendo JSON";
+    case DG_BLE_INIT:       return "bluetooth: preparando";
+    case DG_BLE_BEGIN:      return "bluetooth: iniciando";
     default:                return "nenhum";
   }
 }

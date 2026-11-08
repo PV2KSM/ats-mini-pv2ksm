@@ -1,5 +1,6 @@
 #include "Common.h"
 #include "Storage.h"
+#include "Dmr.h"
 #include "NewUI.h"
 #include "Themes.h"
 #include "I18n.h"
@@ -232,6 +233,7 @@ void prefsSave(uint32_t items)
     prefs.putUChar("TempUnit",    uiTempUnit);
     prefs.putUChar("RadarStyle",  uiRadarStyle);
     prefs.putUChar("UiSvc",       uiSvcMask);
+    prefs.putUChar("DmrTheme",    uiDmrTheme);
     prefs.putUChar("Lang",        uiLang);         // Language of the extra screens
     prefs.putUChar("BLEMode",     bleModeIdx);     // Bluetooth mode
     prefs.putUChar("USBMode",     usbModeIdx);     // USB mode
@@ -331,7 +333,8 @@ bool prefsLoad(uint32_t items)
     uiTempUnit     = prefs.getUChar("TempUnit", uiTempUnit); if(uiTempUnit > 1) uiTempUnit = 0;
     uiRadarStyle   = prefs.getUChar("RadarStyle", uiRadarStyle); if(uiRadarStyle > 4) uiRadarStyle = 0;
     uiCpuIdx       = prefs.getUChar("UiCpu", uiCpuIdx); if(uiCpuIdx > 2) uiCpuIdx = 0;
-    uiSvcMask      = prefs.getUChar("UiSvc", uiSvcMask) & 0x0F;
+    uiSvcMask      = prefs.getUChar("UiSvc", uiSvcMask) & 0x1F;
+    uiDmrTheme     = prefs.getUChar("DmrTheme", uiDmrTheme); if(uiDmrTheme >= DMR_THEMES) uiDmrTheme = 0;
     uiLang         = prefs.getUChar("Lang", uiLang);            // Language of the extra screens
     if(uiLang >= LANG_TOTAL) uiLang = LANG_EN;
     bleModeIdx     = prefs.getUChar("BLEMode", bleModeIdx);     // Bluetooth mode

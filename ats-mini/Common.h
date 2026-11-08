@@ -212,6 +212,7 @@ extern uint8_t uiMenuStyle;   // 0 original list menus and screens, 1 new look w
 #define SVC_NEWS    2
 #define SVC_WEATHER 4
 #define SVC_FINANCE 8
+#define SVC_DMR     16
 extern uint8_t uiSvcMask;     // default 0x0F = all on
 extern uint8_t uiRadarStyle;  // Flights radar: 0 map, 1 A32X, 2 ATCAS, 3 BTCAS, 4 B7X
 extern uint8_t uiTempUnit;   // Weather temperature unit: 0 = Celsius, 1 = Fahrenheit

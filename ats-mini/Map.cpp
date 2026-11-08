@@ -451,28 +451,24 @@ static void buildMapLocked()
   lastTryGen = gen;
 }
 
-static void mapTask(void *)
+void mapWork()
 {
-  for(;;)
+  if(flightsIsActive() && !wantBuild && shownValid && tplHasStyle)
   {
-    if(flightsIsActive() && !wantBuild && shownValid && tplHasStyle)
+    uint8_t st = MAP_STYLE_LIGHT;
+    locationGetMapCfg(nullptr, 0, nullptr, &st);
+    if(st == MAP_STYLE_AUTO && wantLight(st) != builtLight) wantBuild = true;   // Day/night changed
+  }
+  if(flightsIsActive() && wantBuild)
+  {
+    const bool retryWait = lastTryFailed && lastTryGen == configGen && (uint32_t)(millis() - lastTryMs) < MAP_RETRY_MS;
+    if(!retryWait)
     {
-      uint8_t st = MAP_STYLE_LIGHT;
-      locationGetMapCfg(nullptr, 0, nullptr, &st);
-      if(st == MAP_STYLE_AUTO && wantLight(st) != builtLight) wantBuild = true;   // Day/night changed
+      wantBuild = false;
+      buildMap();
+      if(builtGen != configGen) wantBuild = true;   // Config changed while building, or the build failed
+      else if(lastTryFailed) wantBuild = true;      // Retry after MAP_RETRY_MS
     }
-    if(flightsIsActive() && wantBuild)
-    {
-      const bool retryWait = lastTryFailed && lastTryGen == configGen && (uint32_t)(millis() - lastTryMs) < MAP_RETRY_MS;
-      if(!retryWait)
-      {
-        wantBuild = false;
-        buildMap();
-        if(builtGen != configGen) wantBuild = true;   // Config changed while building, or the build failed
-        else if(lastTryFailed) wantBuild = true;      // Retry after MAP_RETRY_MS
-      }
-    }
-    vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
 
@@ -480,5 +476,4 @@ void mapBegin()
 {
   if(!mtx) mtx = xSemaphoreCreateMutex();
   if(!mtx) return;
-  xTaskCreatePinnedToCore(mapTask, "map", MAP_TASK_STACK, nullptr, 1, nullptr, 1);
 }
